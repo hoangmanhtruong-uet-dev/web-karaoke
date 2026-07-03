@@ -1,0 +1,149 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Branch - Chi nhánh karaoke
+model Branch {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String    @unique
+  address     String
+  district    String
+  city        String
+  phone       String
+  email       String?   @db.VarChar(255)
+  openingHours Json
+  amenities   Json
+  status      BranchStatus @default(active)
+  imageUrl    String?   @db.VarChar(500)
+  rooms       Room[]
+  bookings    Booking[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Room - Các phòng tại chi nhánh
+model Room {
+  id          String    @id @default(uuid())
+  branchId    String
+  branch      Branch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  name        String
+  slug        String    @unique
+  tier        RoomTier
+  capacity    Json
+  hourlyRate  Int
+  features    Json
+  status      RoomStatus @default(available)
+  imageUrl    String?   @db.VarChar(500)
+  bookings    Booking[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([branchId])
+  @@index([tier])
+  @@index([status])
+}
+
+// MenuItem - Các món trong menu
+model MenuItem {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String    @unique
+  category    MenuCategory
+  description String
+  price       Int
+  imageUrl    String?   @db.VarChar(500)
+  isSignature Boolean   @default(false)
+  isAvailable Boolean   @default(true)
+  bookings    BookingMenuItem[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Booking - Đơn đặt phòng
+model Booking {
+  id            String    @id @default(uuid())
+  branchId      String
+  branch        Branch    @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  roomId        String?
+  room          Room?     @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  customerName  String
+  customerPhone String
+  customerEmail String?   @db.VarChar(255)
+  guestCount    Int
+  date          String
+  startTime     String
+  durationHours Int       @default(3)
+  status        BookingStatus @default(pending)
+  note          String?   @db.Text
+  totalAmount   Int?
+  paidAmount    Int       @default(0)
+  
+  menuItems     BookingMenuItem[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([branchId])
+  @@index([roomId])
+  @@index([status, date])
+  @@index([customerPhone])
+}
+
+// BookingMenuItem - Mối quan hệ nhiều-nhiều giữa Booking và MenuItem
+model BookingMenuItem {
+  id          String    @id @default(uuid())
+  bookingId   String
+  menuItemId  String
+  quantity    Int       @default(1)
+  price       Int       // Lưu giá tại thời điểm đặt (để tránh thay đổi sau này)
+  
+  booking     Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  menuItem    MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
+
+  @@unique([bookingId, menuItemId])
+}
+
+// Enum types
+enum BranchStatus {
+  active
+  maintenance
+  comingSoon @map("coming-soon")
+}
+
+enum RoomTier {
+  standard
+  vip
+  premium
+  presidential
+}
+
+enum RoomStatus {
+  available
+  occupied
+  maintenance
+}
+
+enum MenuCategory {
+  drink
+  food
+  combo
+  fruit
+  snack
+}
+
+enum BookingStatus {
+  pending
+  confirmed
+  completed
+  cancelled
+}
