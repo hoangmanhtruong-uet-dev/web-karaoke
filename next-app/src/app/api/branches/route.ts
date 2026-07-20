@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import prisma from "@/lib/prisma"
 import { BranchStatus } from "@prisma/client"
+import { apiError, apiSuccess } from "@/lib/api-response"
 
 export async function GET(request: NextRequest) {
   try {
@@ -31,10 +32,8 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    return NextResponse.json({ branches })
+    return apiSuccess({ branches })
   } catch {
-    return NextResponse.json({ error: "Không thể tải danh sách chi nhánh" }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
+    return apiError(500, "BRANCHES_LOAD_FAILED", "Không thể tải danh sách chi nhánh.")
   }
 }

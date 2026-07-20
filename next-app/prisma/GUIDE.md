@@ -51,19 +51,7 @@ Script seed nằm ở `prisma/seeds/data.ts` và được cấu hình trong `pac
 }
 ```
 
-### Cách 2 — Seed qua API (nếu đang chạy dev server)
-
-Nếu dev server đang chạy (`npm run dev`), truy cập:
-
-```
-http://localhost:3000/api/seed
-```
-
-hoặc dùng curl:
-
-```bash
-curl http://localhost:3000/api/seed
-```
+Seed chỉ được chạy bằng CLI. Project không cung cấp seed endpoint qua HTTP để tránh thao tác ghi dữ liệu công khai.
 
 API này sẽ insert dữ liệu mẫu vào database.
 
@@ -111,3 +99,4 @@ Khi thay đổi file `prisma/schema.prisma`:
 - File `.env` chứa `DATABASE_URL` — **không commit** lên git (đã có trong `.gitignore`)
 - Nếu dùng local PostgreSQL, tạo database trước: `CREATE DATABASE web_karaoke;`
 - Script seed dùng `tsx` (TypeScript executor), nếu chưa có: `npm install -D tsx`
+- Production dùng `npx prisma migrate deploy`; không dùng `prisma db push`.

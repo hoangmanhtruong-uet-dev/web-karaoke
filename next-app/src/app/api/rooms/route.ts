@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { Prisma, RoomStatus, RoomTier } from "@prisma/client"
 
 import prisma from "@/lib/prisma"
+import { apiError, apiSuccess } from "@/lib/api-response"
 
 function isRoomStatus(value: string): value is RoomStatus {
   return Object.values(RoomStatus).includes(value as RoomStatus)
@@ -43,10 +44,8 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    return NextResponse.json({ rooms })
+    return apiSuccess({ rooms })
   } catch {
-    return NextResponse.json({ error: "Không thể tải danh sách phòng" }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
+    return apiError(500, "ROOMS_LOAD_FAILED", "Không thể tải danh sách phòng.")
   }
 }

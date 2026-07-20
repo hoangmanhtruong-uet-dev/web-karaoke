@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { Prisma, MenuCategory } from "@prisma/client"
 
 import prisma from "@/lib/prisma"
+import { apiError, apiSuccess } from "@/lib/api-response"
 
 export async function GET(request: NextRequest) {
   try {
@@ -34,10 +35,8 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    return NextResponse.json({ menuItems })
+    return apiSuccess({ menuItems })
   } catch {
-    return NextResponse.json({ error: "Không thể tải danh sách menu" }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
+    return apiError(500, "MENU_ITEMS_LOAD_FAILED", "Không thể tải danh sách menu.")
   }
 }

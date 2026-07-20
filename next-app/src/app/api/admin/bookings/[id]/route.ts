@@ -1,0 +1,5 @@
+import { authorizeAdminApi, hasPrincipal } from "@/lib/admin-api"
+import { apiError, apiSuccess } from "@/lib/api-response"
+import { getAdminBooking, getBookingAudit } from "@/lib/admin-queries"
+
+export async function GET(_request:Request,{params}:{params:Promise<{id:string}>}){const auth=await authorizeAdminApi();if(!hasPrincipal(auth))return auth.response;const{id}=await params;const booking=await getAdminBooking(id);if(!booking)return apiError(404,"BOOKING_NOT_FOUND","Không tìm thấy booking.");return apiSuccess({booking,audit:await getBookingAudit(id)})}

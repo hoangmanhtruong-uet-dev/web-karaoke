@@ -29,8 +29,7 @@ A Next.js-based booking platform for Royal Karaoke, featuring modern UI with a g
 ### Technical Features
 - TypeScript for type safety
 - Next.js 16 App Router
-- Server Actions for data mutations
-- API routes for data fetching
+- Route Handlers for validated data mutations and fetching
 - Responsive design (mobile, tablet, desktop)
 - Loading states with skeleton UI
 - Empty state handling
@@ -106,11 +105,9 @@ cp .env.example .env
 npx prisma migrate dev
 ```
 
-5. Seed the database (optional):
+5. Seed the database (optional, CLI only):
 ```bash
 npx prisma db seed
-# or
-curl http://localhost:3000/api/seed
 ```
 
 6. Start the development server:
@@ -130,10 +127,13 @@ Visit [http://localhost:3000](http://localhost:3000) to see the app.
 | `build` | Build production application |
 | `start` | Start production server |
 | `lint` | Run ESLint |
-| `type-check` | Run TypeScript type checking |
-| `prisma:generate` | Generate Prisma client |
-| `prisma:migrate` | Run database migrations |
-| `prisma:studio` | Open Prisma Studio |
+| `typecheck` | Run TypeScript type checking |
+| `test` | Run the Vitest suite |
+| `prisma:seed` | Seed sample data through the CLI |
+| `test:integration` | Run PostgreSQL integration scenarios (requires an isolated `TEST_DATABASE_URL`) |
+| `job:expire-bookings` | Expire due pending booking holds once |
+| `job:create-reminders` | Create due reminder outbox events once |
+| `job:process-outbox` | Process one bounded outbox batch once |
 
 ## Environment Variables
 
@@ -141,6 +141,18 @@ Visit [http://localhost:3000](http://localhost:3000) to see the app.
 |----------|-------------|----------|
 | `DATABASE_URL` | PostgreSQL connection string | Yes |
 | `NEXT_PUBLIC_API_URL` | API base URL | No (defaults to relative) |
+| `AUTH_SECRET` | Auth.js signing secret | Yes |
+| `BOOKING_HOLD_MINUTES` | Pending hold duration | No (defaults to 15) |
+| `BOOKING_REMINDER_MINUTES` | Reminder lead time | No (defaults to 120) |
+| `JOB_BATCH_SIZE` | Maximum records per job invocation | No (defaults to 25) |
+| `CRON_SECRET` | Bearer secret for internal job endpoints | Yes for HTTP cron |
+| `EMAIL_PROVIDER` | `console` in development or `webhook` | Yes in production |
+| `EMAIL_FROM` | Sender address | Yes for webhook notifications |
+| `EMAIL_WEBHOOK_URL` | Notification provider endpoint | Yes for webhook notifications |
+| `EMAIL_API_KEY` | Notification provider credential | Yes for webhook notifications |
+| `ADMIN_NOTIFICATION_EMAIL` | Recipient of contact alerts | Yes for contact alerts |
+| `ADMIN_SEED_EMAIL` | Initial admin email used only by CLI seed | Optional |
+| `ADMIN_SEED_PASSWORD` | Initial admin password used only by CLI seed | Optional |
 
 ## Available Pages
 
@@ -154,6 +166,11 @@ Visit [http://localhost:3000](http://localhost:3000) to see the app.
 | `/gallery` | Gallery of spaces |
 | `/promotions` | Current promotions |
 | `/contact` | Contact form |
+| `/admin/login` | Staff/admin sign in |
+| `/admin` | Protected operations dashboard |
+| `/admin/bookings` | Protected booking management |
+| `/admin/contact-requests` | Protected contact management |
+| `/admin/outbox` | Protected notification/dead-letter view |
 
 ## API Endpoints
 
@@ -163,7 +180,31 @@ Visit [http://localhost:3000](http://localhost:3000) to see the app.
 | `/api/rooms` | GET | Get available rooms |
 | `/api/menu-items` | GET | Get available menu items |
 | `/api/bookings` | POST | Submit booking request |
-| `/api/seed` | POST | Seed database with sample data |
+| `/api/contact` | POST | Persist a contact request |
+
+## Production operations
+
+Apply checked-in migrations from the `next-app` directory:
+
+```bash
+npx prisma migrate deploy
+```
+
+Create the first administrator by setting `ADMIN_SEED_EMAIL`, `ADMIN_SEED_PASSWORD`
+(minimum 12 characters), and optionally `ADMIN_SEED_NAME`, then run:
+
+```bash
+npm run prisma:seed
+```
+
+Run each job from a platform scheduler. The CLI commands are suitable for a worker
+host. A serverless scheduler can instead `POST` to `/api/internal/jobs/expire-bookings`,
+`/api/internal/jobs/create-reminders`, and `/api/internal/jobs/process-outbox` with
+`Authorization: Bearer <CRON_SECRET>`. Job invocations are bounded and safe to overlap.
+
+PostgreSQL integration tests must never target production. Set an isolated
+`TEST_DATABASE_URL`, migrate that database separately, and then run
+`npm run test:integration`. The suite deliberately skips when the variable is absent.
 
 ## Design System
 

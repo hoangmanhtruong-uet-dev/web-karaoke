@@ -6,7 +6,14 @@ export type RoomStatus = "available" | "occupied" | "maintenance";
 
 export type MenuCategory = "drink" | "food" | "combo" | "fruit" | "snack";
 
-export type BookingStatus = "pending" | "confirmed" | "completed" | "cancelled";
+export type BookingStatus =
+  | "pending"
+  | "confirmed"
+  | "checkedIn"
+  | "completed"
+  | "cancelled"
+  | "rejected"
+  | "expired";
 
 export interface Branch {
   id: string;

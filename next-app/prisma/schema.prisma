@@ -11,42 +11,42 @@ datasource db {
 
 // Branch - Chi nhánh karaoke
 model Branch {
-  id          String    @id @default(uuid())
-  name        String
-  slug        String    @unique
-  address     String
-  district    String
-  city        String
-  phone       String
-  email       String?   @db.VarChar(255)
+  id           String       @id @default(uuid())
+  name         String
+  slug         String       @unique
+  address      String
+  district     String
+  city         String
+  phone        String
+  email        String?      @db.VarChar(255)
   openingHours Json
-  amenities   Json
-  status      BranchStatus @default(active)
-  imageUrl    String?   @db.VarChar(500)
-  rooms       Room[]
-  bookings    Booking[]
+  amenities    Json
+  status       BranchStatus @default(active)
+  imageUrl     String?      @db.VarChar(500)
+  rooms        Room[]
+  bookings     Booking[]
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Room - Các phòng tại chi nhánh
 model Room {
-  id          String    @id @default(uuid())
-  branchId    String
-  branch      Branch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  name        String
-  slug        String    @unique
-  tier        RoomTier
-  capacity    Json
-  hourlyRate  Int
-  features    Json
-  status      RoomStatus @default(available)
-  imageUrl    String?   @db.VarChar(500)
-  bookings    Booking[]
+  id         String     @id @default(uuid())
+  branchId   String
+  branch     Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  name       String
+  slug       String     @unique
+  tier       RoomTier
+  capacity   Json
+  hourlyRate Int
+  features   Json
+  status     RoomStatus @default(available)
+  imageUrl   String?    @db.VarChar(500)
+  bookings   Booking[]
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([branchId])
   @@index([tier])
@@ -55,60 +55,196 @@ model Room {
 
 // MenuItem - Các món trong menu
 model MenuItem {
-  id          String    @id @default(uuid())
+  id          String            @id @default(uuid())
   name        String
-  slug        String    @unique
+  slug        String            @unique
   category    MenuCategory
   description String
   price       Int
-  imageUrl    String?   @db.VarChar(500)
-  isSignature Boolean   @default(false)
-  isAvailable Boolean   @default(true)
+  imageUrl    String?           @db.VarChar(500)
+  isSignature Boolean           @default(false)
+  isAvailable Boolean           @default(true)
   bookings    BookingMenuItem[]
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Booking - Đơn đặt phòng
 model Booking {
-  id            String    @id @default(uuid())
-  branchId      String
-  branch        Branch    @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  roomId        String?
-  room          Room?     @relation(fields: [roomId], references: [id], onDelete: SetNull)
-  customerName  String
-  customerPhone String
-  customerEmail String?   @db.VarChar(255)
-  guestCount    Int
-  date          String
-  startTime     String
-  durationHours Int       @default(3)
-  status        BookingStatus @default(pending)
-  note          String?   @db.Text
-  totalAmount   Int?
-  paidAmount    Int       @default(0)
-  
-  menuItems     BookingMenuItem[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id             String        @id @default(uuid())
+  code           String        @unique @db.VarChar(20)
+  branchId       String
+  branch         Branch        @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  roomId         String?
+  room           Room?         @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  customerName   String
+  customerPhone  String
+  customerEmail  String?       @db.VarChar(255)
+  guestCount     Int
+  date           String
+  startTime      String
+  durationHours  Int           @default(3)
+  startAt        DateTime?     @db.Timestamptz(3)
+  endAt          DateTime?     @db.Timestamptz(3)
+  idempotencyKey String?       @unique @db.VarChar(100)
+  requestHash    String?       @db.VarChar(64)
+  status         BookingStatus @default(pending)
+  source         BookingSource @default(website)
+  expiresAt      DateTime?     @db.Timestamptz(3)
+  confirmedAt    DateTime?     @db.Timestamptz(3)
+  cancelledAt    DateTime?     @db.Timestamptz(3)
+  rejectedAt     DateTime?     @db.Timestamptz(3)
+  checkedInAt    DateTime?     @db.Timestamptz(3)
+  expiredAt      DateTime?     @db.Timestamptz(3)
+  note           String?       @db.Text
+  totalAmount    Int?
+  paidAmount     Int           @default(0)
+
+  menuItems              BookingMenuItem[]
+  adminNotes             AdminNote[]
+  notificationDeliveries NotificationDelivery[]
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
 
   @@index([branchId])
   @@index([roomId])
   @@index([status, date])
+  @@index([roomId, startAt, endAt, status])
+  @@index([status, startAt])
+  @@index([status, expiresAt])
   @@index([customerPhone])
+}
+
+// ContactRequest - Yêu cầu tư vấn gửi từ contact form
+model ContactRequest {
+  id         String        @id @default(uuid())
+  name       String        @db.VarChar(120)
+  phone      String        @db.VarChar(20)
+  email      String?       @db.VarChar(255)
+  message    String        @db.Text
+  status     ContactStatus @default(new)
+  adminNotes AdminNote[]
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@index([status, createdAt])
+  @@index([phone])
+}
+
+model AdminUser {
+  id           String      @id @default(uuid())
+  email        String      @unique @db.VarChar(255)
+  name         String      @db.VarChar(120)
+  passwordHash String      @db.VarChar(255)
+  role         AdminRole   @default(staff)
+  isActive     Boolean     @default(true)
+  lastLoginAt  DateTime?   @db.Timestamptz(3)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  notes        AdminNote[]
+  auditLogs    AuditLog[]
+
+  @@index([role, isActive])
+}
+
+model AuthLoginAttempt {
+  identifierHash  String    @id @db.VarChar(64)
+  attemptCount    Int       @default(0)
+  windowStartedAt DateTime  @db.Timestamptz(3)
+  blockedUntil    DateTime? @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt
+
+  @@index([blockedUntil])
+}
+
+model AdminNote {
+  id               String          @id @default(uuid())
+  authorId         String
+  author           AdminUser       @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  bookingId        String?
+  booking          Booking?        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  contactRequestId String?
+  contactRequest   ContactRequest? @relation(fields: [contactRequestId], references: [id], onDelete: Cascade)
+  content          String          @db.Text
+  createdAt        DateTime        @default(now())
+
+  @@index([bookingId, createdAt])
+  @@index([contactRequestId, createdAt])
+}
+
+model AuditLog {
+  id         String     @id @default(uuid())
+  actorId    String?
+  actor      AdminUser? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actorRole  String     @db.VarChar(30)
+  action     String     @db.VarChar(80)
+  entityType String     @db.VarChar(40)
+  entityId   String
+  oldValue   Json?
+  newValue   Json?
+  metadata   Json?
+  createdAt  DateTime   @default(now())
+
+  @@index([entityType, entityId, createdAt])
+  @@index([actorId, createdAt])
+}
+
+model OutboxEvent {
+  id             String                 @id @default(uuid())
+  eventType      OutboxEventType
+  aggregateType  String                 @db.VarChar(40)
+  aggregateId    String
+  payload        Json
+  idempotencyKey String                 @unique @db.VarChar(180)
+  status         OutboxStatus           @default(pending)
+  attemptCount   Int                    @default(0)
+  nextAttemptAt  DateTime               @default(now()) @db.Timestamptz(3)
+  lockedAt       DateTime?              @db.Timestamptz(3)
+  lockToken      String?                @db.VarChar(100)
+  processedAt    DateTime?              @db.Timestamptz(3)
+  lastError      String?                @db.VarChar(500)
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  deliveries     NotificationDelivery[]
+
+  @@index([status, nextAttemptAt, createdAt])
+  @@index([aggregateType, aggregateId])
+}
+
+model NotificationDelivery {
+  id                String              @id @default(uuid())
+  outboxEventId     String
+  outboxEvent       OutboxEvent         @relation(fields: [outboxEventId], references: [id], onDelete: Cascade)
+  bookingId         String?
+  booking           Booking?            @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  channel           NotificationChannel
+  recipientHash     String              @db.VarChar(64)
+  recipientMasked   String              @db.VarChar(255)
+  template          String              @db.VarChar(80)
+  status            DeliveryStatus
+  providerMessageId String?             @db.VarChar(255)
+  attemptCount      Int                 @default(0)
+  errorSummary      String?             @db.VarChar(500)
+  sentAt            DateTime?           @db.Timestamptz(3)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@unique([outboxEventId, channel, recipientHash])
+  @@index([bookingId, createdAt])
+  @@index([status, createdAt])
 }
 
 // BookingMenuItem - Mối quan hệ nhiều-nhiều giữa Booking và MenuItem
 model BookingMenuItem {
-  id          String    @id @default(uuid())
-  bookingId   String
-  menuItemId  String
-  quantity    Int       @default(1)
-  price       Int       // Lưu giá tại thời điểm đặt (để tránh thay đổi sau này)
-  
-  booking     Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  menuItem    MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
+  id         String @id @default(uuid())
+  bookingId  String
+  menuItemId String
+  quantity   Int    @default(1)
+  price      Int // Lưu giá tại thời điểm đặt (để tránh thay đổi sau này)
+
+  booking  Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
 
   @@unique([bookingId, menuItemId])
 }
@@ -117,7 +253,7 @@ model BookingMenuItem {
 enum BranchStatus {
   active
   maintenance
-  comingSoon @map("coming-soon")
+  comingSoon  @map("coming-soon")
 }
 
 enum RoomTier {
@@ -144,6 +280,58 @@ enum MenuCategory {
 enum BookingStatus {
   pending
   confirmed
+  checkedIn
   completed
   cancelled
+  rejected
+  expired
+}
+
+enum ContactStatus {
+  new
+  inProgress
+  resolved
+  spam
+}
+
+enum AdminRole {
+  user
+  staff
+  admin
+}
+
+enum BookingSource {
+  website
+  admin
+  phone
+}
+
+enum OutboxEventType {
+  bookingCreated
+  bookingConfirmed
+  bookingRejected
+  bookingCancelled
+  bookingExpired
+  bookingRoomChanged
+  bookingReminder
+  contactRequestCreated
+}
+
+enum OutboxStatus {
+  pending
+  processing
+  processed
+  failed
+  deadLetter
+}
+
+enum NotificationChannel {
+  email
+  internal
+}
+
+enum DeliveryStatus {
+  pending
+  sent
+  failed
 }

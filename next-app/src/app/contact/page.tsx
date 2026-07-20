@@ -1,6 +1,6 @@
 "use client"
 
-import { FormEvent, ReactNode, useMemo, useState } from "react"
+import { FormEvent, ReactNode, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import {
@@ -29,6 +29,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { branches } from "@/data/branches"
+import type { ApiResponse } from "@/lib/api-response"
 import { formatPhone, isValidVietnamPhone } from "@/lib/utils"
 
 type ContactForm = {
@@ -38,6 +39,12 @@ type ContactForm = {
 }
 
 type ContactErrors = Partial<Record<keyof ContactForm, string>>
+
+type ContactApiResponse = ApiResponse<{
+  contactRequestId: string
+  createdAt: string
+  message: string
+}>
 
 const HOTLINE = "1900 1234 56"
 
@@ -127,6 +134,9 @@ export default function ContactPage() {
   const [form, setForm] = useState<ContactForm>(initialForm)
   const [errors, setErrors] = useState<ContactErrors>({})
   const [isSuccessOpen, setIsSuccessOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState("")
+  const submissionLockRef = useRef(false)
 
   const activeBranches = useMemo(
     () => branches.filter((branch) => branch.status === "active"),
@@ -139,18 +149,57 @@ export default function ContactPage() {
   ) => {
     setForm((current) => ({ ...current, [key]: value }))
     setErrors((current) => ({ ...current, [key]: undefined }))
+    setSubmitError("")
   }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+
+    if (submissionLockRef.current) return
 
     const nextErrors = validateContactForm(form)
     setErrors(nextErrors)
 
     if (Object.keys(nextErrors).length > 0) return
 
-    setIsSuccessOpen(true)
-    setForm(initialForm)
+    submissionLockRef.current = true
+    setIsSubmitting(true)
+    setSubmitError("")
+
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.fullName.trim(),
+          phone: form.phone,
+          message: form.message.trim(),
+        }),
+      })
+      const result = (await response.json()) as ContactApiResponse
+
+      if (!response.ok || !result.success) {
+        const apiError = result.success ? undefined : result.error
+        setSubmitError(apiError?.message ?? "Không thể gửi liên hệ lúc này.")
+
+        if (apiError?.fieldErrors) {
+          setErrors({
+            fullName: apiError.fieldErrors.name?.[0],
+            phone: apiError.fieldErrors.phone?.[0],
+            message: apiError.fieldErrors.message?.[0],
+          })
+        }
+        return
+      }
+
+      setIsSuccessOpen(true)
+      setForm(initialForm)
+    } catch {
+      setSubmitError("Kết nối chưa ổn định. Dữ liệu của bạn vẫn được giữ để thử lại.")
+    } finally {
+      submissionLockRef.current = false
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -388,8 +437,9 @@ export default function ContactPage() {
                 <label className="block space-y-2">
                   <span className={fieldLabelClassName}>Nội dung *</span>
                   <textarea
-                    value={form.message}
-                    onChange={(event) => updateForm("message", event.target.value)}
+                      value={form.message}
+                      onChange={(event) => updateForm("message", event.target.value)}
+                      maxLength={2000}
                     placeholder="Ví dụ: Tôi cần đặt phòng cho 12 khách vào tối thứ 7, có trang trí sinh nhật..."
                     className={textareaClassName}
                     aria-invalid={Boolean(errors.message)}
@@ -410,12 +460,21 @@ export default function ContactPage() {
                       Royal Karaoke sẽ phản hồi qua số điện thoại bạn cung cấp.
                     </p>
                   </div>
-                  <Button className="luxury-button h-13 rounded-full px-7 text-base sm:w-auto">
-                    Gửi liên hệ
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="luxury-button h-13 rounded-full px-7 text-base sm:w-auto disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isSubmitting ? "Đang gửi..." : "Gửi liên hệ"}
                     <Send className="ml-2 size-5" />
                   </Button>
                 </div>
               </div>
+              {submitError && (
+                <p className="mt-3 rounded-2xl border border-rose-300/20 bg-rose-500/10 px-4 py-3 text-sm leading-6 text-rose-100">
+                  {submitError}
+                </p>
+              )}
             </motion.form>
           </div>
         </div>

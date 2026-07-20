@@ -1,6 +1,6 @@
 "use client"
 
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react"
+import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import {
   CalendarClock,
   CheckCircle2,
@@ -29,6 +29,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { bookingTrustItems, brand } from "@/data/site"
+import type { ApiResponse } from "@/lib/api-response"
+import { getAvailableRoomTiers, shouldResetRoomTier } from "@/lib/booking-client"
 import { cn, formatCurrency, formatPhone, isValidVietnamPhone } from "@/lib/utils"
 import type { Branch, MenuItem, Room, RoomTier } from "@/types"
 
@@ -46,12 +48,12 @@ type BookingForm = {
 
 type BookingErrors = Partial<Record<keyof BookingForm, string>>
 
-type BookingApiResponse = {
-  success: boolean
+type BookingApiResponse = ApiResponse<{
+  bookingId: string
+  replayed: boolean
+  expiresAt: string | null
   message: string
-  bookingId?: string
-  errors?: Record<string, string>
-}
+}>
 
 type BookingField = keyof Pick<
   BookingForm,
@@ -181,7 +183,10 @@ export default function BookingPage() {
   const [isSuccessOpen, setIsSuccessOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitMessage, setSubmitMessage] = useState("")
+  const [bookingExpiresAt, setBookingExpiresAt] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState("")
+  const submissionLockRef = useRef(false)
+  const idempotencyKeyRef = useRef<string | null>(null)
   const minBookingDate = getTodayInputValue()
 
   // Data from API
@@ -202,16 +207,16 @@ export default function BookingPage() {
         ])
 
         if (branchesRes.ok) {
-          const branchesData = await branchesRes.json()
-          setBranches(branchesData.branches ?? [])
+          const branchesData = (await branchesRes.json()) as ApiResponse<{ branches: Branch[] }>
+          if (branchesData.success) setBranches(branchesData.data.branches)
         }
         if (roomsRes.ok) {
-          const roomsData = await roomsRes.json()
-          setRooms(roomsData.rooms ?? [])
+          const roomsData = (await roomsRes.json()) as ApiResponse<{ rooms: Room[] }>
+          if (roomsData.success) setRooms(roomsData.data.rooms)
         }
         if (menuItemsRes.ok) {
-          const menuItemsData = await menuItemsRes.json()
-          setMenuItems(menuItemsData.menuItems ?? [])
+          const menuItemsData = (await menuItemsRes.json()) as ApiResponse<{ menuItems: MenuItem[] }>
+          if (menuItemsData.success) setMenuItems(menuItemsData.data.menuItems)
         }
       } catch (error) {
         console.error("Failed to load booking data:", error)
@@ -229,11 +234,8 @@ export default function BookingPage() {
   )
 
   const availableRoomTiers = useMemo(
-    () =>
-      Array.from(
-        new Set(rooms.filter((room) => room.status === "available").map((room) => room.tier))
-      ) as RoomTier[],
-    [rooms]
+    () => getAvailableRoomTiers(rooms, form.branchId),
+    [rooms, form.branchId]
   )
 
   const suggestedMenuItems = useMemo(
@@ -276,11 +278,13 @@ export default function BookingPage() {
     value: BookingForm[Key]
   ) => {
     setForm((current) => ({ ...current, [key]: value }))
+    idempotencyKeyRef.current = null
     setErrors((current) => ({ ...current, [key]: undefined }))
     setSubmitError("")
   }
 
   const toggleMenuItem = (itemId: string) => {
+    idempotencyKeyRef.current = null
     setForm((current) => {
       const selectedMenuIds = current.selectedMenuIds.includes(itemId)
         ? current.selectedMenuIds.filter((id) => id !== itemId)
@@ -288,6 +292,18 @@ export default function BookingPage() {
 
       return { ...current, selectedMenuIds }
     })
+  }
+
+  const handleBranchChange = (branchId: string) => {
+    const branchTiers = getAvailableRoomTiers(rooms, branchId)
+    setForm((current) => ({
+      ...current,
+      branchId,
+      roomTier: shouldResetRoomTier(current.roomTier, branchTiers) ? "" : current.roomTier,
+    }))
+    setErrors((current) => ({ ...current, branchId: undefined, roomTier: undefined }))
+    idempotencyKeyRef.current = null
+    setSubmitError("")
   }
 
   const handleGuestCountChange = (value: number) => {
@@ -301,7 +317,7 @@ export default function BookingPage() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
-    if (isSubmitting) return
+    if (submissionLockRef.current) return
 
     setSubmitError("")
     setSubmitMessage("")
@@ -311,13 +327,18 @@ export default function BookingPage() {
 
     if (Object.keys(nextErrors).length > 0) return
 
+    submissionLockRef.current = true
     setIsSubmitting(true)
+
+    const idempotencyKey = idempotencyKeyRef.current ?? crypto.randomUUID()
+    idempotencyKeyRef.current = idempotencyKey
 
     try {
       const response = await fetch("/api/bookings", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
         },
         body: JSON.stringify({
           name: form.customerName.trim(),
@@ -326,6 +347,7 @@ export default function BookingPage() {
           roomType: form.roomTier,
           date: form.date,
           time: form.startTime,
+          durationHours: 3,
           guests: form.guestCount,
           selectedMenuItems: form.selectedMenuIds,
           note: form.note.trim(),
@@ -335,33 +357,39 @@ export default function BookingPage() {
       const result = (await response.json()) as BookingApiResponse
 
       if (!response.ok || !result.success) {
-        setSubmitError(result.message || "Không thể gửi yêu cầu đặt phòng.")
+        const apiError = result.success ? undefined : result.error
+        setSubmitError(apiError?.message || "Không thể gửi yêu cầu đặt phòng.")
 
-        const serverErrors = result.errors
+        const serverErrors = apiError?.fieldErrors
 
         if (serverErrors) {
           setErrors((current) => ({
             ...current,
-            customerName: serverErrors.name,
-            customerPhone: serverErrors.phone,
-            branchId: serverErrors.branchId,
-            roomTier: serverErrors.roomType,
-            date: serverErrors.date,
-            startTime: serverErrors.time,
-            guestCount: serverErrors.guests,
-            note: serverErrors.note,
+            customerName: serverErrors.customerName?.[0],
+            customerPhone: serverErrors.customerPhone?.[0],
+            branchId: serverErrors.branchId?.[0],
+            roomTier: serverErrors.roomTier?.[0],
+            date: serverErrors.date?.[0],
+            startTime: serverErrors.startTime?.[0],
+            guestCount: serverErrors.guestCount?.[0],
+            note: serverErrors.note?.[0],
           }))
         }
+
+        idempotencyKeyRef.current = null
 
         return
       }
 
-      setSubmitMessage(result.message)
+      setSubmitMessage(result.data.message)
+      setBookingExpiresAt(result.data.expiresAt)
       setIsSuccessOpen(true)
       setForm(initialForm)
+      idempotencyKeyRef.current = null
     } catch {
       setSubmitError("Kết nối chưa ổn định. Vui lòng thử lại sau ít phút.")
     } finally {
+      submissionLockRef.current = false
       setIsSubmitting(false)
     }
   }
@@ -548,7 +576,7 @@ export default function BookingPage() {
                              <button
                                key={branch.id}
                                type="button"
-                               onClick={() => updateForm("branchId", branch.id)}
+                                onClick={() => handleBranchChange(branch.id)}
                                className={cn(
                                  "rounded-2xl border p-4 text-left transition",
                                  selected
@@ -594,7 +622,7 @@ export default function BookingPage() {
                       </span>
                       <select
                         value={form.branchId}
-                        onChange={(event) => updateForm("branchId", event.target.value)}
+                          onChange={(event) => handleBranchChange(event.target.value)}
                         className={inputClassName}
                         aria-invalid={Boolean(errors.branchId)}
                       >
@@ -812,6 +840,7 @@ export default function BookingPage() {
                     <textarea
                       value={form.note}
                       onChange={(event) => updateForm("note", event.target.value)}
+                      maxLength={500}
                       placeholder="Ví dụ: sinh nhật, cần trang trí nhẹ, có trẻ em..."
                       className="min-h-24 w-full resize-none rounded-2xl border border-white/10 bg-[#07080c]/80 px-4 py-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-gold/50 focus:ring-2 focus:ring-gold/15"
                     />
@@ -831,6 +860,7 @@ export default function BookingPage() {
                     </p>
                   </div>
                   <Button
+                    type="submit"
                     disabled={isSubmitting}
                     className="luxury-button h-13 rounded-full px-7 text-base sm:w-auto disabled:cursor-not-allowed disabled:opacity-60"
                   >
@@ -874,14 +904,10 @@ export default function BookingPage() {
             </p>
           </div>
           <Button
+            type="submit"
             form="booking-form"
             disabled={isSubmitting}
             className="luxury-button h-11 shrink-0 rounded-full px-5 disabled:cursor-not-allowed disabled:opacity-60"
-            onClick={() =>
-              document
-                .querySelector("form")
-                ?.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }))
-            }
           >
             {isSubmitting ? "Đang gửi..." : "Gửi yêu cầu"}
           </Button>
@@ -900,6 +926,11 @@ export default function BookingPage() {
             {submitMessage ||
               `${brand.name} đã lưu thông tin của bạn. Nhân viên concierge sẽ gọi xác nhận chi nhánh, hạng phòng và khung giờ trong ít phút.`}
           </DialogDescription>
+          {bookingExpiresAt && (
+            <p className="text-center text-sm text-gold">
+              Giữ chỗ đến {new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", dateStyle: "short", timeStyle: "short" }).format(new Date(bookingExpiresAt))}
+            </p>
+          )}
           <Button
             onClick={() => setIsSuccessOpen(false)}
             className="luxury-button mt-2 h-12 rounded-full"
