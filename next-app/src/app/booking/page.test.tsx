@@ -20,7 +20,7 @@ describe("booking submit flow", () => {
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (init?.method === "POST") return bookingResponse
-      if (url.endsWith("/api/branches")) {
+      if (url.includes("/api/branches")) {
         return Promise.resolve(jsonResponse({ success: true, data: { branches: [{
           id: "branch-1",
           name: "Royal Karaoke - Quận 1",
@@ -61,8 +61,9 @@ describe("booking submit flow", () => {
       target: { value: "Nguyễn An" },
     })
     fireEvent.change(screen.getByPlaceholderText("0901 234 567"), {
-      target: { value: "0901234567" },
+      target: { value: "0901 234 567" },
     })
+    expect((screen.getByPlaceholderText("0901 234 567") as HTMLInputElement).value).toBe("0901234567")
     fireEvent.click(screen.getByRole("button", { name: /Quận 1/ }))
     fireEvent.change(screen.getByLabelText("Ngày đặt *"), {
       target: { value: "2030-07-21" },

@@ -79,15 +79,30 @@ export async function getAdminDashboard(now = new Date()) {
   const vietnamNow = new Date(now.getTime() + 7 * 60 * 60_000)
   const startUtc = new Date(Date.UTC(vietnamNow.getUTCFullYear(), vietnamNow.getUTCMonth(), vietnamNow.getUTCDate()) - 7 * 60 * 60_000)
   const endUtc = new Date(startUtc.getTime() + 24 * 60 * 60_000)
-  const [today, grouped, contacts, upcoming, nearExpiry, deadLetters] = await Promise.all([
+  const [today, grouped, contacts, upcoming, nearExpiry, deadLetters, customers, availableRooms, activeBranches, paid] = await Promise.all([
     prisma.booking.count({ where: { startAt: { gte: startUtc, lt: endUtc } } }),
     prisma.booking.groupBy({ by: ["status"], _count: { _all: true } }),
     prisma.contactRequest.count({ where: { status: { in: ["new", "inProgress"] } } }),
     prisma.booking.count({ where: { status: { in: ["confirmed", "pending"] }, startAt: { gt: now, lte: new Date(now.getTime() + 24 * 60 * 60_000) } } }),
     prisma.booking.count({ where: { status: "pending", expiresAt: { gt: now, lte: new Date(now.getTime() + 5 * 60_000) } } }),
     prisma.outboxEvent.count({ where: { status: "deadLetter" } }),
+    prisma.customer.count({ where: { status: "active" } }),
+    prisma.room.count({ where: { status: "available" } }),
+    prisma.branch.count({ where: { status: "active" } }),
+    prisma.payment.aggregate({ where: { status: "completed" }, _sum: { amount: true } }),
   ])
-  return { today, byStatus: Object.fromEntries(grouped.map((row) => [row.status, row._count._all])), contacts, upcoming, nearExpiry, deadLetters }
+  return {
+    today,
+    byStatus: Object.fromEntries(grouped.map((row) => [row.status, row._count._all])),
+    contacts,
+    upcoming,
+    nearExpiry,
+    deadLetters,
+    customers,
+    availableRooms,
+    activeBranches,
+    revenue: paid._sum.amount ?? 0,
+  }
 }
 
 const contactQuerySchema = z.object({

@@ -31,7 +31,7 @@ import {
 import { bookingTrustItems, brand } from "@/data/site"
 import type { ApiResponse } from "@/lib/api-response"
 import { getAvailableRoomTiers, shouldResetRoomTier } from "@/lib/booking-client"
-import { cn, formatCurrency, formatPhone, isValidVietnamPhone } from "@/lib/utils"
+import { cn, formatCurrency, isValidVietnamPhone, normalizePhoneInput } from "@/lib/utils"
 import type { Branch, MenuItem, Room, RoomTier } from "@/types"
 
 type BookingForm = {
@@ -194,32 +194,40 @@ export default function BookingPage() {
   const [rooms, setRooms] = useState<Room[]>([])
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
   const [isLoadingData, setIsLoadingData] = useState(true)
+  const [dataLoadError, setDataLoadError] = useState("")
 
   // Fetch branches, rooms, and menu items on mount
   useEffect(() => {
     async function fetchData() {
       try {
         setIsLoadingData(true)
+        setDataLoadError("")
         const [branchesRes, roomsRes, menuItemsRes] = await Promise.all([
-          fetch("/api/branches"),
+          fetch("/api/branches?status=active"),
           fetch("/api/rooms"),
           fetch("/api/menu-items"),
         ])
 
-        if (branchesRes.ok) {
-          const branchesData = (await branchesRes.json()) as ApiResponse<{ branches: Branch[] }>
-          if (branchesData.success) setBranches(branchesData.data.branches)
+        if (!branchesRes.ok || !roomsRes.ok || !menuItemsRes.ok) {
+          throw new Error("Booking catalog request failed")
         }
-        if (roomsRes.ok) {
-          const roomsData = (await roomsRes.json()) as ApiResponse<{ rooms: Room[] }>
-          if (roomsData.success) setRooms(roomsData.data.rooms)
+
+        const [branchesData, roomsData, menuItemsData] = await Promise.all([
+          branchesRes.json() as Promise<ApiResponse<{ branches: Branch[] }>>,
+          roomsRes.json() as Promise<ApiResponse<{ rooms: Room[] }>>,
+          menuItemsRes.json() as Promise<ApiResponse<{ menuItems: MenuItem[] }>>,
+        ])
+
+        if (!branchesData.success || !roomsData.success || !menuItemsData.success) {
+          throw new Error("Booking catalog response was unsuccessful")
         }
-        if (menuItemsRes.ok) {
-          const menuItemsData = (await menuItemsRes.json()) as ApiResponse<{ menuItems: MenuItem[] }>
-          if (menuItemsData.success) setMenuItems(menuItemsData.data.menuItems)
-        }
+
+        setBranches(branchesData.data.branches)
+        setRooms(roomsData.data.rooms)
+        setMenuItems(menuItemsData.data.menuItems)
       } catch (error) {
         console.error("Failed to load booking data:", error)
+        setDataLoadError("Không thể kết nối dữ liệu karaoke. Vui lòng tải lại trang hoặc liên hệ hotline.")
       } finally {
         setIsLoadingData(false)
       }
@@ -342,7 +350,7 @@ export default function BookingPage() {
         },
         body: JSON.stringify({
           name: form.customerName.trim(),
-          phone: formatPhone(form.customerPhone),
+          phone: form.customerPhone,
           branchId: form.branchId,
           roomType: form.roomTier,
           date: form.date,
@@ -540,9 +548,13 @@ export default function BookingPage() {
                       <input
                         value={form.customerPhone}
                         onChange={(event) =>
-                          updateForm("customerPhone", formatPhone(event.target.value))
+                          updateForm("customerPhone", normalizePhoneInput(event.target.value))
                         }
+                        name="customerPhone"
+                        type="tel"
                         inputMode="tel"
+                        autoComplete="tel"
+                        maxLength={10}
                         placeholder="0901 234 567"
                         className={inputClassName}
                         aria-invalid={Boolean(errors.customerPhone)}
@@ -611,8 +623,8 @@ export default function BookingPage() {
                      ) : (
                        <EmptyState
                          icon={<MapPin className="size-4" />}
-                         title="Chưa có chi nhánh khả dụng"
-                         description="Vui lòng gọi hotline để concierge kiểm tra phòng trống trực tiếp."
+                         title={dataLoadError ? "Không tải được dữ liệu chi nhánh" : "Chưa có chi nhánh khả dụng"}
+                         description={dataLoadError || "Vui lòng gọi hotline để concierge kiểm tra phòng trống trực tiếp."}
                        />
                      )}
 
