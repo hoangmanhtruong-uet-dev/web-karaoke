@@ -38,6 +38,76 @@ type SeedMenuItem = {
   isAvailable: boolean
 }
 
+type SeedService = {
+  id: string
+  name: string
+  slug: string
+  category: "staff" | "decoration" | "equipment" | "event" | "other"
+  description: string
+  unit: "perBooking" | "perHour" | "perPerson" | "perItem"
+  price: number
+  isAvailable: boolean
+  imageUrl: string | null
+}
+
+export const seedServices: SeedService[] = [
+  {
+    id: "service-dj",
+    name: "DJ riêng tại phòng",
+    slug: "dj-rieng-tai-phong",
+    category: "staff",
+    description: "DJ phối nhạc và hỗ trợ chương trình theo yêu cầu của nhóm khách.",
+    unit: "perHour",
+    price: 800_000,
+    isAvailable: true,
+    imageUrl: null,
+  },
+  {
+    id: "service-birthday-decoration",
+    name: "Trang trí sinh nhật",
+    slug: "trang-tri-sinh-nhat",
+    category: "decoration",
+    description: "Bóng bay, banner tên, nến và bàn quà theo chủ đề cơ bản.",
+    unit: "perBooking",
+    price: 650_000,
+    isAvailable: true,
+    imageUrl: null,
+  },
+  {
+    id: "service-photographer",
+    name: "Chụp ảnh sự kiện",
+    slug: "chup-anh-su-kien",
+    category: "event",
+    description: "Nhiếp ảnh gia chụp và bàn giao ảnh đã chỉnh màu sau sự kiện.",
+    unit: "perHour",
+    price: 900_000,
+    isAvailable: true,
+    imageUrl: null,
+  },
+  {
+    id: "service-extra-microphone",
+    name: "Micro không dây bổ sung",
+    slug: "micro-khong-day-bo-sung",
+    category: "equipment",
+    description: "Micro không dây bổ sung ngoài thiết bị tiêu chuẩn của phòng.",
+    unit: "perItem",
+    price: 100_000,
+    isAvailable: true,
+    imageUrl: null,
+  },
+  {
+    id: "service-party-host",
+    name: "MC hoạt náo",
+    slug: "mc-hoat-nao",
+    category: "event",
+    description: "MC dẫn chương trình, tổ chức trò chơi và kết nối khách mời.",
+    unit: "perBooking",
+    price: 1_500_000,
+    isAvailable: true,
+    imageUrl: null,
+  },
+]
+
 // Data từ next-app/src/data/branches.ts
 export const seedBranches: SeedBranch[] = [
   {

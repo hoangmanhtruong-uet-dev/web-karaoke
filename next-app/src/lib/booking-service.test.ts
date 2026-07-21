@@ -39,6 +39,9 @@ const fakeDatabase = vi.hoisted(() => {
     menuItem: {
       findMany: async () => [],
     },
+    customer: {
+      upsert: async () => ({ id: "customer-1" }),
+    },
     outboxEvent: {
       create: async () => ({ id: "event-1" }),
     },

@@ -1,5 +1,5 @@
 import prisma from "../src/lib/prisma"
-import { seedBranches, seedMenuItems, seedRooms } from "./seeds/data"
+import { seedBranches, seedMenuItems, seedRooms, seedServices } from "./seeds/data"
 import { hash } from "bcryptjs"
 
 async function seed() {
@@ -83,10 +83,30 @@ async function seed() {
     })
   }
 
+  for (const service of seedServices) {
+    const data = {
+      name: service.name,
+      slug: service.slug,
+      category: service.category,
+      description: service.description,
+      unit: service.unit,
+      price: service.price,
+      isAvailable: service.isAvailable,
+      imageUrl: service.imageUrl,
+    }
+
+    await prisma.service.upsert({
+      where: { id: service.id },
+      create: { id: service.id, ...data },
+      update: data,
+    })
+  }
+
   console.info("Seed completed", {
     branches: seedBranches.length,
     rooms: seedRooms.length,
     menuItems: seedMenuItems.length,
+    services: seedServices.length,
   })
 }
 

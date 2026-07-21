@@ -1,7 +1,6 @@
 -- Add production-safe booking/contact fields without removing legacy columns.
-ALTER TYPE "BookingStatus" ADD VALUE IF NOT EXISTS 'checkedIn';
-ALTER TYPE "BookingStatus" ADD VALUE IF NOT EXISTS 'rejected';
-ALTER TYPE "BookingStatus" ADD VALUE IF NOT EXISTS 'expired';
+-- BookingStatus values are committed by the preceding migration because
+-- PostgreSQL cannot safely use a newly-added enum value in the same transaction.
 
 DO $$ BEGIN
   CREATE TYPE "ContactStatus" AS ENUM ('new', 'inProgress', 'resolved', 'spam');

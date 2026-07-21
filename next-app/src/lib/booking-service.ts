@@ -158,11 +158,24 @@ export async function createBooking(
             )
           }
 
+          const customer = await tx.customer.upsert({
+            where: { phone: input.customerPhone },
+            create: {
+              fullName: input.customerName,
+              phone: input.customerPhone,
+            },
+            update: {
+              fullName: input.customerName,
+            },
+            select: { id: true },
+          })
+
           const booking = await tx.booking.create({
             data: {
               code: `RK-${randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase()}`,
               customerName: input.customerName,
               customerPhone: input.customerPhone,
+              customerId: customer.id,
               branchId: input.branchId,
               roomId: selectedRoom.id,
               date: input.date,

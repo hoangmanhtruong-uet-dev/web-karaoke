@@ -70,12 +70,53 @@ model MenuItem {
   updatedAt DateTime @updatedAt
 }
 
+// Customer - Hồ sơ CRM, tách khỏi dữ liệu snapshot trên từng booking
+model Customer {
+  id             String         @id @default(uuid())
+  fullName       String         @db.VarChar(120)
+  phone          String         @unique @db.VarChar(20)
+  email          String?        @db.VarChar(255)
+  birthday       DateTime?      @db.Date
+  membershipTier MembershipTier @default(regular)
+  loyaltyPoints  Int            @default(0)
+  status         CustomerStatus @default(active)
+  note           String?        @db.Text
+  bookings       Booking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([fullName])
+  @@index([membershipTier, status])
+}
+
+// Service - Dịch vụ gọi thêm ngoài tiền phòng và menu
+model Service {
+  id          String           @id @default(uuid())
+  name        String           @db.VarChar(120)
+  slug        String           @unique
+  category    ServiceCategory
+  description String           @db.Text
+  unit        ServiceUnit
+  price       Int
+  isAvailable Boolean          @default(true)
+  imageUrl    String?          @db.VarChar(500)
+  bookings    BookingService[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category, isAvailable])
+}
+
 // Booking - Đơn đặt phòng
 model Booking {
   id             String        @id @default(uuid())
   code           String        @unique @db.VarChar(20)
   branchId       String
   branch         Branch        @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  customerId     String?
+  customer       Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
   roomId         String?
   room           Room?         @relation(fields: [roomId], references: [id], onDelete: SetNull)
   customerName   String
@@ -102,12 +143,15 @@ model Booking {
   paidAmount     Int           @default(0)
 
   menuItems              BookingMenuItem[]
+  services               BookingService[]
+  payments               Payment[]
   adminNotes             AdminNote[]
   notificationDeliveries NotificationDelivery[]
   createdAt              DateTime               @default(now())
   updatedAt              DateTime               @updatedAt
 
   @@index([branchId])
+  @@index([customerId])
   @@index([roomId])
   @@index([status, date])
   @@index([roomId, startAt, endAt, status])
@@ -249,6 +293,43 @@ model BookingMenuItem {
   @@unique([bookingId, menuItemId])
 }
 
+// BookingService - Lưu giá dịch vụ tại thời điểm khách đặt
+model BookingService {
+  id        String  @id @default(uuid())
+  bookingId String
+  serviceId String
+  quantity  Int     @default(1)
+  unitPrice Int
+  note      String? @db.Text
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@unique([bookingId, serviceId])
+  @@index([serviceId])
+}
+
+// Payment - Lịch sử giao dịch; paidAmount trên Booking là số tổng hợp nhanh
+model Payment {
+  id              String        @id @default(uuid())
+  bookingId       String
+  booking         Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  amount          Int
+  method          PaymentMethod
+  status          PaymentStatus @default(pending)
+  transactionCode String?       @unique @db.VarChar(100)
+  paidAt          DateTime?     @db.Timestamptz(3)
+  note            String?       @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([bookingId, status, createdAt])
+  @@index([status, paidAt])
+}
+
 // Enum types
 enum BranchStatus {
   active
@@ -275,6 +356,47 @@ enum MenuCategory {
   combo
   fruit
   snack
+}
+
+enum MembershipTier {
+  regular
+  silver
+  gold
+  diamond
+}
+
+enum CustomerStatus {
+  active
+  blocked
+}
+
+enum ServiceCategory {
+  staff
+  decoration
+  equipment
+  event
+  other
+}
+
+enum ServiceUnit {
+  perBooking
+  perHour
+  perPerson
+  perItem
+}
+
+enum PaymentMethod {
+  cash
+  bankTransfer
+  card
+  eWallet
+}
+
+enum PaymentStatus {
+  pending
+  completed
+  failed
+  refunded
 }
 
 enum BookingStatus {
