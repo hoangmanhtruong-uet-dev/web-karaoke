@@ -12,14 +12,14 @@ evidence are unavailable. No public deployment or traffic opening was performed.
 
 ## B. Deployment evidence
 
-| Field                                  | Evidence                                   |
-| -------------------------------------- | ------------------------------------------ |
-| Local/remote commit before this sprint | `159129e3ebecfeacf09c62c06a1f43bc458dd432` |
-| CI run                                 | GitHub Actions `29898986160` ? SUCCESS     |
-| Deployment ID                          | BLOCKED ? not available                    |
-| Production domain                      | BLOCKED ? not available                    |
-| Deployment time                        | BLOCKED ? not available                    |
-| Rollback target                        | BLOCKED ? not available                    |
+| Field                     | Evidence                                   |
+| ------------------------- | ------------------------------------------ |
+| CI-verified sprint commit | `5fbdb0c547c2b84b4bc6fcfaa0c646061c5f8a5d` |
+| CI run                    | GitHub Actions `29915462916` — SUCCESS     |
+| Deployment ID             | BLOCKED ? not available                    |
+| Production domain         | BLOCKED ? not available                    |
+| Deployment time           | BLOCKED ? not available                    |
+| Rollback target           | BLOCKED ? not available                    |
 
 ## C. Infrastructure configuration
 
@@ -84,13 +84,13 @@ Local evidence collected in this sprint:
 | `git diff --check`              | PASS before staging                                                            |
 | Production environment verifier | EXPECTED FAIL — production environment is unavailable; output was redacted     |
 | Baseline remote CI              | PASS — run `29898986160` for commit `159129e3ebecfeacf09c62c06a1f43bc458dd432` |
-| Sprint commit CI                | PENDING — record after commit and push                                         |
+| Sprint commit CI                | PASS — run `29915462916` for commit `5fbdb0c547c2b84b4bc6fcfaa0c646061c5f8a5d` |
 
 Integration used disposable PostgreSQL `karaoke_evidence_test` on loopback. It is
 not production evidence. Production-domain smoke and security smoke are BLOCKED
 because no deployment/domain or authorization to open traffic is available.
 
-The final sprint commit must receive remote CI success before it can be considered
+Sprint commit `5fbdb0c547c2b84b4bc6fcfaa0c646061c5f8a5d` received remote CI success. It is
 a private deployment candidate.
 
 ## I. Payment status
