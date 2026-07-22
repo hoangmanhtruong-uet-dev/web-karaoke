@@ -1,23 +1,62 @@
 import prisma from "../src/lib/prisma"
-import { seedBranches, seedMenuItems, seedRooms, seedServices } from "./seeds/data"
+import { passwordSchema } from "../src/lib/password-policy"
+import {
+  seedBranches,
+  seedMenuItems,
+  seedRooms,
+  seedServices,
+} from "./seeds/data"
 import { hash } from "bcryptjs"
 
 async function seed() {
   const adminEmail = process.env.ADMIN_SEED_EMAIL?.trim().toLowerCase()
   const adminPassword = process.env.ADMIN_SEED_PASSWORD
-  const adminName = process.env.ADMIN_SEED_NAME?.trim() || "System Administrator"
+  const adminName =
+    process.env.ADMIN_SEED_NAME?.trim() || "System Administrator"
+
+  if (process.env.NODE_ENV === "production" && (adminEmail || adminPassword)) {
+    throw new Error(
+      "ADMIN_SEED_* is disabled in production; use the one-time bootstrap command"
+    )
+  }
+
+  if (
+    (adminEmail || adminPassword) &&
+    process.env.ALLOW_DEV_ADMIN_SEED !== "true"
+  ) {
+    throw new Error(
+      "Set ALLOW_DEV_ADMIN_SEED=true to create a development admin"
+    )
+  }
 
   if (Boolean(adminEmail) !== Boolean(adminPassword)) {
-    throw new Error("ADMIN_SEED_EMAIL and ADMIN_SEED_PASSWORD must be configured together")
+    throw new Error(
+      "ADMIN_SEED_EMAIL and ADMIN_SEED_PASSWORD must be configured together"
+    )
   }
   if (adminEmail && adminPassword) {
-    if (adminPassword.length < 12) throw new Error("ADMIN_SEED_PASSWORD must contain at least 12 characters")
-    const passwordHash = await hash(adminPassword, 12)
-    await prisma.adminUser.upsert({
+    if (!passwordSchema.safeParse(adminPassword).success) {
+      throw new Error(
+        "ADMIN_SEED_PASSWORD must meet the strong-password and bcrypt length policy"
+      )
+    }
+    const existingAdmin = await prisma.adminUser.findUnique({
       where: { email: adminEmail },
-      create: { email: adminEmail, name: adminName, passwordHash, role: "admin", isActive: true },
-      update: { name: adminName, passwordHash, role: "admin", isActive: true },
+      select: { id: true },
     })
+    if (!existingAdmin) {
+      const passwordHash = await hash(adminPassword, 12)
+      await prisma.adminUser.create({
+        data: {
+          email: adminEmail,
+          name: adminName,
+          passwordHash,
+          role: "admin",
+          isActive: true,
+          mustChangePassword: true,
+        },
+      })
+    }
   }
   for (const branch of seedBranches) {
     const data = {
@@ -32,8 +71,8 @@ async function seed() {
       amenities: branch.amenities,
       status:
         branch.status === "coming-soon"
-          ? "comingSoon" as const
-          : branch.status as "active" | "maintenance",
+          ? ("comingSoon" as const)
+          : (branch.status as "active" | "maintenance"),
       imageUrl: branch.imageUrl,
     }
 
@@ -112,7 +151,10 @@ async function seed() {
 
 seed()
   .catch((error: unknown) => {
-    console.error("Seed failed", error instanceof Error ? error.message : "Unknown error")
+    console.error(
+      "Seed failed",
+      error instanceof Error ? error.message : "Unknown error"
+    )
     process.exitCode = 1
   })
   .finally(async () => {

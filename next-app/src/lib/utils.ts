@@ -22,12 +22,15 @@ export function formatPhone(value: string) {
   return `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7)}`
 }
 
+export function canonicalizeVietnamPhone(value: string) {
+  const digits = value.replace(/\D/g, "")
+  return digits.startsWith("84") ? `0${digits.slice(2)}` : digits
+}
+
 export function normalizePhoneInput(value: string) {
-  return value.replace(/\D/g, "").slice(0, 10)
+  return canonicalizeVietnamPhone(value).slice(0, 10)
 }
 
 export function isValidVietnamPhone(value: string) {
-  const digits = value.replace(/\D/g, "")
-
-  return /^(0|\+?84)(3|5|7|8|9)\d{8}$/.test(digits)
+  return /^0(3|5|7|8|9)\d{8}$/.test(canonicalizeVietnamPhone(value))
 }

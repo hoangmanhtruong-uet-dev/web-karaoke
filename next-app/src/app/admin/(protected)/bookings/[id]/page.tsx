@@ -5,10 +5,10 @@ import { StatusBadge } from "@/components/admin/status-badge"
 import { BOOKING_TRANSITIONS } from "@/lib/booking-state-machine"
 import { getAdminBooking, getBookingAudit } from "@/lib/admin-queries"
 import prisma from "@/lib/prisma"
-import { requireAdminPage } from "@/lib/admin-auth"
+import { requirePermissionPage } from "@/lib/admin-auth"
 
 export default async function BookingDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdminPage()
+  await requirePermissionPage("booking.read")
   const { id } = await params
   const [booking, audit] = await Promise.all([getAdminBooking(id), getBookingAudit(id)])
   if (!booking) notFound()

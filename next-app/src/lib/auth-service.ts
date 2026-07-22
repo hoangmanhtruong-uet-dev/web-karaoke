@@ -4,72 +4,142 @@ import { compare } from "bcryptjs"
 import { z } from "zod"
 
 import prisma from "@/lib/prisma"
+import { loginPasswordSchema } from "@/lib/password-policy"
+import {
+  clearRateLimit,
+  consumeRateLimit,
+  type RateLimitRule,
+} from "@/lib/rate-limit"
+import { getClientIp, hashSecurityIdentifier } from "@/lib/request-context"
+import { writeSecurityAudit } from "@/lib/security-audit"
+
+export { passwordSchema } from "@/lib/password-policy"
 
 const LOGIN_WINDOW_MS = 15 * 60 * 1000
 const LOGIN_BLOCK_MS = 15 * 60 * 1000
-const MAX_LOGIN_ATTEMPTS = 5
-const DUMMY_PASSWORD_HASH = "$2b$12$C6UzMDM.H6dfI/f/IKcEe.ouZTkHDJqDUj8mGN3z.lxH1cHjrrG3K"
+const DUMMY_PASSWORD_HASH =
+  "$2b$12$C6UzMDM.H6dfI/f/IKcEe.ouZTkHDJqDUj8mGN3z.lxH1cHjrrG3K"
 
 const credentialsSchema = z.object({
-  email: z.string().trim().email().max(255).transform((value) => value.toLowerCase()),
-  password: z.string().min(12).max(200),
+  email: z
+    .string()
+    .trim()
+    .email()
+    .max(255)
+    .transform((value) => value.toLowerCase()),
+  password: loginPasswordSchema,
 })
 
 export type AuthenticatedAdmin = {
   id: string
   email: string
   name: string
-  role: "staff" | "admin"
+  role: "staff" | "manager" | "admin"
+  sessionVersion: number
 }
 
 function identifierHash(email: string) {
   return createHash("sha256").update(email).digest("hex")
 }
 
-async function registerFailedAttempt(hash: string, now: Date) {
-  await prisma.$transaction(async (tx) => {
-    const existing = await tx.authLoginAttempt.findUnique({ where: { identifierHash: hash } })
-    const windowExpired = !existing || now.getTime() - existing.windowStartedAt.getTime() >= LOGIN_WINDOW_MS
-    const attemptCount = windowExpired ? 1 : existing.attemptCount + 1
-    const blockedUntil = attemptCount >= MAX_LOGIN_ATTEMPTS
-      ? new Date(now.getTime() + LOGIN_BLOCK_MS)
-      : null
+function loginRules(emailHash: string, ip: string): RateLimitRule[] {
+  const accountRule: RateLimitRule = {
+    scope: "login-account",
+    identifier: emailHash,
+    limit: 20,
+    windowMs: LOGIN_WINDOW_MS,
+    blockMs: LOGIN_BLOCK_MS,
+  }
 
-    await tx.authLoginAttempt.upsert({
-      where: { identifierHash: hash },
-      create: { identifierHash: hash, attemptCount, windowStartedAt: now, blockedUntil },
-      update: {
-        attemptCount,
-        windowStartedAt: windowExpired ? now : existing.windowStartedAt,
-        blockedUntil,
-      },
-    })
-  })
+  if (ip === "unknown") return [accountRule]
+
+  return [
+    {
+      scope: "login-account-ip",
+      identifier: `${emailHash}:${ip}`,
+      limit: 5,
+      windowMs: LOGIN_WINDOW_MS,
+      blockMs: LOGIN_BLOCK_MS,
+    },
+    {
+      scope: "login-ip",
+      identifier: ip,
+      limit: 40,
+      windowMs: LOGIN_WINDOW_MS,
+      blockMs: LOGIN_BLOCK_MS,
+    },
+    accountRule,
+  ]
 }
 
-export async function authenticateAdmin(credentials: unknown): Promise<AuthenticatedAdmin | null> {
+export async function authenticateAdmin(
+  credentials: unknown,
+  request?: Request
+): Promise<AuthenticatedAdmin | null> {
   const parsed = credentialsSchema.safeParse(credentials)
   if (!parsed.success) return null
 
   const now = new Date()
-  const hash = identifierHash(parsed.data.email)
-  const attempt = await prisma.authLoginAttempt.findUnique({ where: { identifierHash: hash } })
-  if (attempt?.blockedUntil && attempt.blockedUntil > now) return null
+  const emailHash = identifierHash(parsed.data.email)
+  const ip = request ? getClientIp(request) : "unknown"
+  const rules = loginRules(emailHash, ip)
+  const attempts = await Promise.all(
+    rules.map((rule) => consumeRateLimit(rule, now))
+  )
+  if (attempts.some((decision) => !decision.allowed)) return null
 
   const user = await prisma.adminUser.findUnique({
     where: { email: parsed.data.email },
-    select: { id: true, email: true, name: true, passwordHash: true, role: true, isActive: true },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      passwordHash: true,
+      role: true,
+      isActive: true,
+      sessionVersion: true,
+    },
   })
-  const passwordMatches = await compare(parsed.data.password, user?.passwordHash ?? DUMMY_PASSWORD_HASH)
-  if (!passwordMatches || !user || !user.isActive || (user.role !== "staff" && user.role !== "admin")) {
-    await registerFailedAttempt(hash, now)
+  const passwordMatches = await compare(
+    parsed.data.password,
+    user?.passwordHash ?? DUMMY_PASSWORD_HASH
+  )
+  if (
+    !passwordMatches ||
+    !user ||
+    !user.isActive ||
+    !["staff", "manager", "admin"].includes(user.role)
+  ) {
+    const locked = attempts.some((attempt) => attempt.newlyBlocked)
+    await writeSecurityAudit({
+      action: locked ? "auth.loginLocked" : "auth.loginFailed",
+      entityType: "adminUser",
+      entityId: hashSecurityIdentifier(parsed.data.email),
+      result: locked ? "blocked" : "failure",
+      request,
+    })
     return null
   }
 
-  await prisma.$transaction([
-    prisma.authLoginAttempt.deleteMany({ where: { identifierHash: hash } }),
-    prisma.adminUser.update({ where: { id: user.id }, data: { lastLoginAt: now } }),
-  ])
+  await clearRateLimit(rules.filter((rule) => rule.scope !== "login-ip"))
+  await prisma.adminUser.update({
+    where: { id: user.id },
+    data: { lastLoginAt: now },
+  })
+  await writeSecurityAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: "auth.loginSucceeded",
+    entityType: "adminUser",
+    entityId: user.id,
+    request,
+  })
 
-  return { id: user.id, email: user.email, name: user.name, role: user.role }
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role as AuthenticatedAdmin["role"],
+    sessionVersion: user.sessionVersion,
+  }
 }

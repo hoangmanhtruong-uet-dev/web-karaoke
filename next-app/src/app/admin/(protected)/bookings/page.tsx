@@ -1,7 +1,7 @@
 import Link from "next/link"
 
 import { StatusBadge } from "@/components/admin/status-badge"
-import { requireAdminPage } from "@/lib/admin-auth"
+import { requirePermissionPage } from "@/lib/admin-auth"
 import { listAdminBookings } from "@/lib/admin-queries"
 import prisma from "@/lib/prisma"
 
@@ -15,7 +15,7 @@ function pageHref(params: Record<string, string | undefined>, page: number) {
 }
 
 export default async function AdminBookingsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  await requireAdminPage()
+  await requirePermissionPage("booking.read")
   const raw = await searchParams
   const params = Object.fromEntries(Object.entries(raw).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value]))
   const [data, branches, rooms] = await Promise.all([

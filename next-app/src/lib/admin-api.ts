@@ -1,13 +1,14 @@
 import { apiError } from "@/lib/api-response"
 import { getAdminPrincipal, type AdminPrincipal } from "@/lib/admin-auth"
+import { hasPermission, type Permission } from "@/lib/permissions"
 
 export async function authorizeAdminApi(
-  roles: Array<AdminPrincipal["role"]> = ["staff", "admin"]
+  permission: Permission
 ): Promise<{ principal: AdminPrincipal } | { response: Response }> {
   const principal = await getAdminPrincipal()
-  if (!principal) return { response: apiError(401, "UNAUTHORIZED", "Bạn cần đăng nhập.") }
-  if (!roles.includes(principal.role)) {
-    return { response: apiError(403, "FORBIDDEN", "Bạn không có quyền thực hiện thao tác này.") }
+  if (!principal) return { response: apiError(401, "UNAUTHORIZED", "Authentication required.") }
+  if (principal.mustChangePassword || !hasPermission(principal.role, permission)) {
+    return { response: apiError(403, "FORBIDDEN", "You do not have permission for this operation.") }
   }
   return { principal }
 }

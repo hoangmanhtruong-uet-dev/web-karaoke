@@ -1,15 +1,18 @@
 import { z } from "zod"
 
-import { isValidVietnamPhone } from "@/lib/utils"
+import { canonicalizeVietnamPhone, isValidVietnamPhone } from "@/lib/utils"
 
 export const contactRequestSchema = z.object({
-  name: z.string().trim().min(1, "Vui lòng nhập họ tên.").max(120),
+  name: z.string().trim().min(1).max(120),
   phone: z
     .string()
     .trim()
-    .refine(isValidVietnamPhone, "Số điện thoại chưa đúng định dạng."),
-  email: z.string().trim().email("Email không hợp lệ.").max(255).optional(),
-  message: z.string().trim().min(1, "Vui lòng nhập nội dung cần tư vấn.").max(2000),
+    .refine(isValidVietnamPhone, "Invalid phone number.")
+    .transform(canonicalizeVietnamPhone),
+  email: z.string().trim().email("Invalid email.").max(255).optional(),
+  message: z.string().trim().min(1).max(2000),
+  // Honeypot: real clients leave this field absent/empty.
+  website: z.string().trim().max(0).optional(),
 })
 
 export type ContactRequestInput = z.infer<typeof contactRequestSchema>

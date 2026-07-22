@@ -177,17 +177,20 @@ model ContactRequest {
 }
 
 model AdminUser {
-  id           String      @id @default(uuid())
-  email        String      @unique @db.VarChar(255)
-  name         String      @db.VarChar(120)
-  passwordHash String      @db.VarChar(255)
-  role         AdminRole   @default(staff)
-  isActive     Boolean     @default(true)
-  lastLoginAt  DateTime?   @db.Timestamptz(3)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  notes        AdminNote[]
-  auditLogs    AuditLog[]
+  id                 String      @id @default(uuid())
+  email              String      @unique @db.VarChar(255)
+  name               String      @db.VarChar(120)
+  passwordHash       String      @db.VarChar(255)
+  role               AdminRole   @default(staff)
+  isActive           Boolean     @default(true)
+  mustChangePassword Boolean     @default(false)
+  sessionVersion     Int         @default(1)
+  passwordChangedAt  DateTime?   @db.Timestamptz(3)
+  lastLoginAt        DateTime?   @db.Timestamptz(3)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  notes              AdminNote[]
+  auditLogs          AuditLog[]
 
   @@index([role, isActive])
 }
@@ -218,20 +221,36 @@ model AdminNote {
 }
 
 model AuditLog {
-  id         String     @id @default(uuid())
-  actorId    String?
-  actor      AdminUser? @relation(fields: [actorId], references: [id], onDelete: SetNull)
-  actorRole  String     @db.VarChar(30)
-  action     String     @db.VarChar(80)
-  entityType String     @db.VarChar(40)
-  entityId   String
-  oldValue   Json?
-  newValue   Json?
-  metadata   Json?
-  createdAt  DateTime   @default(now())
+  id            String     @id @default(uuid())
+  actorId       String?
+  actor         AdminUser? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actorRole     String     @db.VarChar(30)
+  action        String     @db.VarChar(80)
+  entityType    String     @db.VarChar(40)
+  entityId      String
+  oldValue      Json?
+  newValue      Json?
+  metadata      Json?
+  requestId     String?    @db.VarChar(100)
+  ipAddressHash String?    @db.VarChar(64)
+  userAgent     String?    @db.VarChar(300)
+  result        String?    @db.VarChar(30)
+  createdAt     DateTime   @default(now())
 
   @@index([entityType, entityId, createdAt])
   @@index([actorId, createdAt])
+}
+
+model SecurityRateLimit {
+  keyHash         String    @id @db.VarChar(64)
+  scope           String    @db.VarChar(60)
+  count           Int       @default(0)
+  windowStartedAt DateTime  @db.Timestamptz(3)
+  blockedUntil    DateTime? @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt
+
+  @@index([scope, blockedUntil])
+  @@index([updatedAt])
 }
 
 model OutboxEvent {
@@ -419,6 +438,7 @@ enum ContactStatus {
 enum AdminRole {
   user
   staff
+  manager
   admin
 }
 

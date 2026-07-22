@@ -1,0 +1,59 @@
+name: Next app security baseline
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: karaoke_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d karaoke_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CI_DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/karaoke_test
+      AUTH_SECRET: ci-only-auth-secret-at-least-32-characters
+      SECURITY_EVENT_HASH_SECRET: ci-only-security-hash-secret-at-least-32-characters
+    defaults:
+      run:
+        working-directory: next-app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: next-app/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - name: Deploy migrations to isolated test database
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+      - name: PostgreSQL integration tests
+        run: npm run test:integration
+        env:
+          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+          TEST_DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+      - run: npm run build
+      - run: npm audit --audit-level=moderate

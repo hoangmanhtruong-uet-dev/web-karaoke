@@ -1,4 +1,6 @@
 import Link from "next/link"
+import { redirect } from "next/navigation"
+import { ShieldCheck } from "lucide-react"
 import {
   BellRing,
   CalendarCheck2,
@@ -25,6 +27,7 @@ const links = [
 
 export default async function ProtectedAdminLayout({ children }: { children: React.ReactNode }) {
   const admin = await requireAdminPage()
+  if (admin.mustChangePassword) redirect("/admin/change-password")
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgb(214_180_106/0.12),transparent_28rem),#07080c] p-3 text-foreground sm:p-5">
       <div className="mx-auto grid min-h-[calc(100vh-2.5rem)] max-w-[1500px] gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
@@ -43,6 +46,7 @@ export default async function ProtectedAdminLayout({ children }: { children: Rea
                 <Icon className="size-4" />{label}
               </Link>
             ))}
+            {admin.role === "admin" && <Link href="/admin/staff" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition hover:bg-gold/10 hover:text-gold"><ShieldCheck className="size-4" />Nhân viên</Link>}
           </nav>
           <div className="mt-auto border-t border-white/10 p-4">
             <p className="font-semibold">{admin.name}</p>

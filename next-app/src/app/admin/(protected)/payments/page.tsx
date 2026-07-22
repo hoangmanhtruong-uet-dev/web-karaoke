@@ -1,9 +1,9 @@
-import { requireAdminPage } from "@/lib/admin-auth"
+import { requirePermissionPage } from "@/lib/admin-auth"
 import prisma from "@/lib/prisma"
 import { formatCurrency } from "@/lib/utils"
 
 export default async function AdminPaymentsPage() {
-  await requireAdminPage()
+  await requirePermissionPage("payment.read")
   const [payments, totals] = await Promise.all([
     prisma.payment.findMany({ orderBy: { createdAt: "desc" }, take: 100, include: { booking: { select: { code: true, customerName: true } } } }),
     prisma.payment.aggregate({ where: { status: "completed" }, _sum: { amount: true } }),

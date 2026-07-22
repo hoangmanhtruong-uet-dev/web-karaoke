@@ -2,12 +2,12 @@ import { notFound } from "next/navigation"
 
 import { ContactActions } from "@/components/admin/contact-actions"
 import { StatusBadge } from "@/components/admin/status-badge"
-import { requireAdminPage } from "@/lib/admin-auth"
+import { requirePermissionPage } from "@/lib/admin-auth"
 import { getContactTransitions } from "@/lib/contact-admin-service"
 import prisma from "@/lib/prisma"
 
 export default async function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdminPage()
+  await requirePermissionPage("contact.read")
   const { id } = await params
   const contact = await prisma.contactRequest.findUnique({ where: { id }, include: { adminNotes: { include: { author: { select: { name: true } } }, orderBy: { createdAt: "desc" } } } })
   if (!contact) notFound()

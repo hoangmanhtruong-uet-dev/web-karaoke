@@ -12,10 +12,11 @@ const fakeDatabase = vi.hoisted(() => {
   const bookingsByKey = new Map<string, StoredBooking>()
   let createCount = 0
   let transactionQueue = Promise.resolve()
+  const createAudit = vi.fn(async () => ({ id: "audit-1" }))
 
   const tx = {
     $executeRaw: async () => 1,
-    $queryRaw: async () => createCount === 0 ? [{ id: "room-1" }] : [],
+    $queryRaw: async () => (createCount === 0 ? [{ id: "room-1" }] : []),
     booking: {
       findUnique: async (args: { where: { idempotencyKey: string } }) => {
         return bookingsByKey.get(args.where.idempotencyKey) ?? null
@@ -42,6 +43,7 @@ const fakeDatabase = vi.hoisted(() => {
     customer: {
       upsert: async () => ({ id: "customer-1" }),
     },
+    auditLog: { create: createAudit },
     outboxEvent: {
       create: async () => ({ id: "event-1" }),
     },
@@ -49,7 +51,9 @@ const fakeDatabase = vi.hoisted(() => {
 
   return {
     prisma: {
-      $transaction: async <Result>(callback: (client: typeof tx) => Promise<Result>) => {
+      $transaction: async <Result>(
+        callback: (client: typeof tx) => Promise<Result>
+      ) => {
         let release: () => void = () => undefined
         const previous = transactionQueue
         transactionQueue = new Promise<void>((resolve) => {
@@ -66,9 +70,11 @@ const fakeDatabase = vi.hoisted(() => {
     reset() {
       bookingsByKey.clear()
       createCount = 0
+      createAudit.mockClear()
       transactionQueue = Promise.resolve()
     },
     getCreateCount: () => createCount,
+    createAudit,
   }
 })
 
@@ -98,22 +104,39 @@ describe("booking concurrency and idempotency", () => {
       createBooking(input, "booking-request-key-0002", new Date("2030-01-01")),
     ])
 
-    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1)
-    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1)
+    expect(
+      results.filter((result) => result.status === "fulfilled")
+    ).toHaveLength(1)
+    expect(
+      results.filter((result) => result.status === "rejected")
+    ).toHaveLength(1)
     expect(fakeDatabase.getCreateCount()).toBe(1)
   })
 
   it("creates once and replays the original booking for the same key", async () => {
-    const first = await createBooking(input, "booking-request-key-0001", new Date("2030-01-01"))
-    const second = await createBooking(input, "booking-request-key-0001", new Date("2030-01-01"))
+    const first = await createBooking(
+      input,
+      "booking-request-key-0001",
+      new Date("2030-01-01")
+    )
+    const second = await createBooking(
+      input,
+      "booking-request-key-0001",
+      new Date("2030-01-01")
+    )
 
     expect(first).toMatchObject({ bookingId: "booking-1", replayed: false })
     expect(second).toMatchObject({ bookingId: "booking-1", replayed: true })
     expect(fakeDatabase.getCreateCount()).toBe(1)
+    expect(fakeDatabase.createAudit).toHaveBeenCalledTimes(1)
   })
 
   it("returns a clear conflict when a key is reused with a different payload", async () => {
-    await createBooking(input, "booking-request-key-0001", new Date("2030-01-01"))
+    await createBooking(
+      input,
+      "booking-request-key-0001",
+      new Date("2030-01-01")
+    )
 
     await expect(
       createBooking(

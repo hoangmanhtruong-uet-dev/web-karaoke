@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 
 import { z } from "zod"
 
-import { isValidVietnamPhone } from "@/lib/utils"
+import { canonicalizeVietnamPhone, isValidVietnamPhone } from "@/lib/utils"
 
 export const VIETNAM_TIME_ZONE = "Asia/Ho_Chi_Minh"
 export const DEFAULT_DURATION_HOURS = 3
@@ -34,7 +34,8 @@ export const bookingInputSchema = z.object({
   customerPhone: z
     .string()
     .trim()
-    .refine(isValidVietnamPhone, "Số điện thoại chưa đúng định dạng."),
+    .refine(isValidVietnamPhone, "Số điện thoại chưa đúng định dạng.")
+    .transform(canonicalizeVietnamPhone),
   branchId: z.string().trim().min(1, "Vui lòng chọn chi nhánh."),
   roomTier: roomTierSchema.optional(),
   date: z.string().regex(datePattern, "Ngày đặt phòng không hợp lệ."),
@@ -76,7 +77,11 @@ export function toVietnamBookingWindow(
   startTime: string,
   durationHours: number
 ): BookingWindow | null {
-  if (!datePattern.test(date) || !timePattern.test(startTime) || !isValidCalendarDate(date)) {
+  if (
+    !datePattern.test(date) ||
+    !timePattern.test(startTime) ||
+    !isValidCalendarDate(date)
+  ) {
     return null
   }
 
@@ -107,9 +112,14 @@ export function intervalsOverlap(
 }
 
 export function roomHasCapacity(capacity: unknown, guestCount: number) {
-  if (typeof capacity !== "object" || capacity === null || !("max" in capacity)) return false
+  if (typeof capacity !== "object" || capacity === null || !("max" in capacity))
+    return false
   const maximum = (capacity as { max?: unknown }).max
-  return typeof maximum === "number" && Number.isInteger(maximum) && maximum >= guestCount
+  return (
+    typeof maximum === "number" &&
+    Number.isInteger(maximum) &&
+    maximum >= guestCount
+  )
 }
 
 export type BookingConflictRecord = BookingWindow & {
@@ -125,21 +135,32 @@ export function bookingBlocksSlot(
   return (
     existing.roomId === candidate.roomId &&
     existing.branchId === candidate.branchId &&
-    OCCUPYING_BOOKING_STATUSES.includes(existing.status as OccupyingBookingStatus) &&
-    intervalsOverlap(existing.startAt, existing.endAt, candidate.startAt, candidate.endAt)
+    OCCUPYING_BOOKING_STATUSES.includes(
+      existing.status as OccupyingBookingStatus
+    ) &&
+    intervalsOverlap(
+      existing.startAt,
+      existing.endAt,
+      candidate.startAt,
+      candidate.endAt
+    )
   )
 }
 
 export function hashBookingRequest(input: BookingInput) {
   const canonicalPayload = JSON.stringify({
     ...input,
+    customerPhone: canonicalizeVietnamPhone(input.customerPhone),
     selectedMenuIds: [...new Set(input.selectedMenuIds)].sort(),
   })
 
   return createHash("sha256").update(canonicalPayload).digest("hex")
 }
 
-export function validateBookingWindow(window: BookingWindow | null, now = new Date()) {
+export function validateBookingWindow(
+  window: BookingWindow | null,
+  now = new Date()
+) {
   if (!window) return "Ngày hoặc giờ đặt phòng không hợp lệ."
   if (window.startAt <= now) return "Thời gian đặt phòng phải ở tương lai."
   return null

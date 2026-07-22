@@ -12,6 +12,7 @@ import {
 import prisma from "@/lib/prisma"
 import { enqueueOutbox } from "@/lib/outbox"
 import { getBookingHoldMinutes } from "@/lib/server-config"
+import { requestContext } from "@/lib/request-context"
 
 const MAX_TRANSACTION_ATTEMPTS = 3
 
@@ -32,11 +33,17 @@ export class BookingBusinessError extends Error {
 }
 
 function isRetryableTransactionError(error: unknown) {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034"
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2034"
+  )
 }
 
 function isUniqueConstraintError(error: unknown) {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002"
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  )
 }
 
 function isOverlapConstraintError(error: unknown) {
@@ -57,19 +64,30 @@ export type CreateBookingResult = {
 export async function createBooking(
   input: BookingInput,
   idempotencyKey: string,
-  now = new Date()
+  now = new Date(),
+  request?: Request
 ): Promise<CreateBookingResult> {
-  const window = toVietnamBookingWindow(input.date, input.startTime, input.durationHours)
+  const window = toVietnamBookingWindow(
+    input.date,
+    input.startTime,
+    input.durationHours
+  )
   const windowError = validateBookingWindow(window, now)
 
   if (!window || windowError) {
-    throw new BookingBusinessError(422, "INVALID_BOOKING_TIME", windowError ?? "Thời gian không hợp lệ.", {
-      date: [windowError ?? "Thời gian không hợp lệ."],
-    })
+    throw new BookingBusinessError(
+      422,
+      "INVALID_BOOKING_TIME",
+      windowError ?? "Thời gian không hợp lệ.",
+      {
+        date: [windowError ?? "Thời gian không hợp lệ."],
+      }
+    )
   }
 
   const requestHash = hashBookingRequest(input)
   const expiresAt = new Date(now.getTime() + getBookingHoldMinutes() * 60_000)
+  const context = requestContext(request)
 
   for (let attempt = 0; attempt < MAX_TRANSACTION_ATTEMPTS; attempt += 1) {
     try {
@@ -92,7 +110,11 @@ export async function createBooking(
               )
             }
 
-            return { bookingId: existing.id, replayed: true, expiresAt: existing.expiresAt }
+            return {
+              bookingId: existing.id,
+              replayed: true,
+              expiresAt: existing.expiresAt,
+            }
           }
 
           const branch = await tx.branch.findUnique({
@@ -200,6 +222,21 @@ export async function createBooking(
             select: { id: true },
           })
 
+          await tx.auditLog.create({
+            data: {
+              actorRole: "anonymous",
+              action: "booking.created",
+              entityType: "booking",
+              entityId: booking.id,
+              newValue: {
+                status: "pending",
+                branchId: input.branchId,
+                roomId: selectedRoom.id,
+              },
+              result: "success",
+              ...context,
+            },
+          })
           await enqueueOutbox(tx, {
             eventType: "bookingCreated",
             aggregateType: "booking",
@@ -231,11 +268,18 @@ export async function createBooking(
               "Idempotency key đã được dùng cho một nội dung booking khác."
             )
           }
-          return { bookingId: existing.id, replayed: true, expiresAt: existing.expiresAt }
+          return {
+            bookingId: existing.id,
+            replayed: true,
+            expiresAt: existing.expiresAt,
+          }
         }
       }
 
-      if (isRetryableTransactionError(error) && attempt < MAX_TRANSACTION_ATTEMPTS - 1) {
+      if (
+        isRetryableTransactionError(error) &&
+        attempt < MAX_TRANSACTION_ATTEMPTS - 1
+      ) {
         await sleepBeforeRetry(attempt)
         continue
       }

@@ -15,24 +15,36 @@ function postgresConnectionOptions() {
   if (!configuredUrl) return { connectionString: configuredUrl }
 
   const url = new URL(configuredUrl)
-  const requiresTls = url.searchParams.get("sslmode") === "require"
+  const sslMode = url.searchParams.get("sslmode")
+  const requiresTls = ["require", "verify-ca", "verify-full"].includes(
+    sslMode ?? ""
+  )
 
-  if (requiresTls) {
-    // pg 8 currently interprets sslmode=require as certificate verification.
-    // Aiven's managed endpoint uses a CA that is not in Node's default trust
-    // store, so preserve encrypted transport without requiring that local CA.
-    url.searchParams.delete("sslmode")
+  if (process.env.NODE_ENV === "production" && !requiresTls) {
+    throw new Error("Production DATABASE_URL must require verified TLS")
   }
+
+  if (!requiresTls) return { connectionString: url.toString() }
+
+  url.searchParams.delete("sslmode")
+  const encodedCa = process.env.DATABASE_SSL_CA_BASE64?.trim()
+  const ca = encodedCa
+    ? Buffer.from(encodedCa, "base64").toString("utf8")
+    : undefined
+  const allowUnverified =
+    process.env.NODE_ENV !== "production" &&
+    process.env.DATABASE_SSL_ALLOW_UNVERIFIED === "true"
 
   return {
     connectionString: url.toString(),
-    ssl: requiresTls ? { rejectUnauthorized: false } : undefined,
+    ssl: {
+      rejectUnauthorized: !allowUnverified,
+      ...(ca ? { ca } : {}),
+    },
   }
 }
 
-const pool =
-  globalForPool.pgPool ??
-  new Pool(postgresConnectionOptions())
+const pool = globalForPool.pgPool ?? new Pool(postgresConnectionOptions())
 
 const adapter = new PrismaPg(pool)
 

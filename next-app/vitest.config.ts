@@ -1,9 +1,8 @@
 import path from "node:path"
-import { fileURLToPath } from "node:url"
 
 import { defineConfig } from "vitest/config"
 
-const projectRoot = path.dirname(fileURLToPath(import.meta.url))
+const projectRoot = process.cwd()
 
 export default defineConfig({
   resolve: {
@@ -13,6 +12,8 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    exclude: ["src/**/*.integration.test.ts"],
     setupFiles: ["./src/test/setup.ts"],
     restoreMocks: true,
     clearMocks: true,

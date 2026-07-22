@@ -36,6 +36,7 @@ type ContactForm = {
   fullName: string
   phone: string
   message: string
+  website: string
 }
 
 type ContactErrors = Partial<Record<keyof ContactForm, string>>
@@ -52,6 +53,7 @@ const initialForm: ContactForm = {
   fullName: "",
   phone: "",
   message: "",
+  website: "",
 }
 
 const inputClassName =
@@ -174,6 +176,7 @@ export default function ContactPage() {
           name: form.fullName.trim(),
           phone: form.phone,
           message: form.message.trim(),
+          website: form.website,
         }),
       })
       const result = (await response.json()) as ContactApiResponse
@@ -195,7 +198,9 @@ export default function ContactPage() {
       setIsSuccessOpen(true)
       setForm(initialForm)
     } catch {
-      setSubmitError("Kết nối chưa ổn định. Dữ liệu của bạn vẫn được giữ để thử lại.")
+      setSubmitError(
+        "Kết nối chưa ổn định. Dữ liệu của bạn vẫn được giữ để thử lại."
+      )
     } finally {
       submissionLockRef.current = false
       setIsSubmitting(false)
@@ -207,7 +212,7 @@ export default function ContactPage() {
       <section className="relative pt-32 pb-16 lg:pt-40 lg:pb-24">
         <div className="absolute inset-0 bg-gradient-to-b from-[#10131b] via-[#07080c] to-[#07080c]" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgb(214_180_106/0.26),transparent_34%),radial-gradient(circle_at_84%_12%,rgb(59_130_246/0.16),transparent_32%)]" />
-        <div className="absolute left-1/2 top-20 h-80 w-80 -translate-x-1/2 rounded-full bg-gold/10 blur-3xl" />
+        <div className="absolute top-20 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-gold/10 blur-3xl" />
 
         <div className="container-custom relative z-10">
           <div className="grid gap-10 lg:grid-cols-[1.02fr_0.98fr] lg:items-center">
@@ -224,7 +229,7 @@ export default function ContactPage() {
                 Royal Concierge
               </Badge>
 
-              <h1 className="font-heading text-4xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl lg:text-7xl">
+              <h1 className="font-heading text-4xl leading-tight font-bold tracking-tight text-foreground sm:text-5xl lg:text-7xl">
                 Liên hệ{" "}
                 <span className="gold-gradient-text">Royal Karaoke</span>
               </h1>
@@ -235,7 +240,7 @@ export default function ContactPage() {
               </p>
 
               <div className="mt-10 rounded-[2rem] border border-gold/25 bg-gold/10 p-5 shadow-[0_22px_80px_rgb(214_180_106/0.12)] sm:p-6">
-                <p className="mb-3 text-sm uppercase tracking-[0.28em] text-gold/80">
+                <p className="mb-3 text-sm tracking-[0.28em] text-gold/80 uppercase">
                   Hotline 24/7
                 </p>
                 <Link
@@ -286,7 +291,7 @@ export default function ContactPage() {
                 <div className="relative rounded-[1.75rem] border border-white/10 bg-white/[0.035] p-6 backdrop-blur">
                   <div className="mb-8 flex items-center justify-between gap-4">
                     <div>
-                      <p className="text-xs uppercase tracking-[0.3em] text-gold/80">
+                      <p className="text-xs tracking-[0.3em] text-gold/80 uppercase">
                         Kết nối nhanh
                       </p>
                       <h2 className="mt-2 font-heading text-2xl font-bold text-foreground">
@@ -391,8 +396,24 @@ export default function ContactPage() {
               className="rounded-[2rem] border border-white/10 bg-[#10131b]/90 p-4 shadow-[0_30px_90px_rgb(0_0_0/0.35)] backdrop-blur-xl sm:p-7 lg:p-8"
               noValidate
             >
+              <div
+                aria-hidden="true"
+                className="absolute top-auto -left-[10000px] h-px w-px overflow-hidden"
+              >
+                <label htmlFor="contact-website">Website</label>
+                <input
+                  id="contact-website"
+                  name="website"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={form.website}
+                  onChange={(event) =>
+                    updateForm("website", event.target.value)
+                  }
+                />
+              </div>
               <div className="mb-7">
-                <p className="text-sm uppercase tracking-[0.3em] text-gold/80">
+                <p className="text-sm tracking-[0.3em] text-gold/80 uppercase">
                   Contact form
                 </p>
                 <h2 className="mt-2 font-heading text-2xl font-bold text-foreground sm:text-3xl">
@@ -409,7 +430,9 @@ export default function ContactPage() {
                   <span className={fieldLabelClassName}>Họ tên *</span>
                   <input
                     value={form.fullName}
-                    onChange={(event) => updateForm("fullName", event.target.value)}
+                    onChange={(event) =>
+                      updateForm("fullName", event.target.value)
+                    }
                     placeholder="Ví dụ: Nguyễn Minh Anh"
                     className={inputClassName}
                     aria-invalid={Boolean(errors.fullName)}
@@ -431,15 +454,19 @@ export default function ContactPage() {
                     className={inputClassName}
                     aria-invalid={Boolean(errors.phone)}
                   />
-                  {errors.phone && <p className={errorClassName}>{errors.phone}</p>}
+                  {errors.phone && (
+                    <p className={errorClassName}>{errors.phone}</p>
+                  )}
                 </label>
 
                 <label className="block space-y-2">
                   <span className={fieldLabelClassName}>Nội dung *</span>
                   <textarea
-                      value={form.message}
-                      onChange={(event) => updateForm("message", event.target.value)}
-                      maxLength={2000}
+                    value={form.message}
+                    onChange={(event) =>
+                      updateForm("message", event.target.value)
+                    }
+                    maxLength={2000}
                     placeholder="Ví dụ: Tôi cần đặt phòng cho 12 khách vào tối thứ 7, có trang trí sinh nhật..."
                     className={textareaClassName}
                     aria-invalid={Boolean(errors.message)}
@@ -463,7 +490,7 @@ export default function ContactPage() {
                   <Button
                     type="submit"
                     disabled={isSubmitting}
-                    className="luxury-button h-13 rounded-full px-7 text-base sm:w-auto disabled:cursor-not-allowed disabled:opacity-60"
+                    className="luxury-button h-13 rounded-full px-7 text-base disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                   >
                     {isSubmitting ? "Đang gửi..." : "Gửi liên hệ"}
                     <Send className="ml-2 size-5" />
@@ -505,7 +532,7 @@ export default function ContactPage() {
               >
                 <div className="mb-5 flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.28em] text-gold/80">
+                    <p className="text-xs tracking-[0.28em] text-gold/80 uppercase">
                       {branch.district}
                     </p>
                     <h3 className="mt-2 font-heading text-2xl font-bold text-foreground">
@@ -524,7 +551,7 @@ export default function ContactPage() {
                   <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                     <MapPin className="mb-3 size-5 text-gold" />
                     <p className="text-xs text-muted-foreground">Địa chỉ</p>
-                    <p className="mt-1 text-sm font-medium leading-6 text-foreground">
+                    <p className="mt-1 text-sm leading-6 font-medium text-foreground">
                       {branch.address}, {branch.district}, {branch.city}
                     </p>
                   </div>
@@ -551,7 +578,10 @@ export default function ContactPage() {
                       Gọi chi nhánh
                     </Link>
                   </Button>
-                  <Button asChild className="luxury-button h-11 rounded-full px-5">
+                  <Button
+                    asChild
+                    className="luxury-button h-11 rounded-full px-5"
+                  >
                     <Link
                       href={`https://www.google.com/maps/search/${encodeURIComponent(
                         `${branch.address}, ${branch.district}, ${branch.city}`
@@ -651,7 +681,7 @@ function InfoRow({
       </div>
       <div className="min-w-0">
         <p className="text-xs text-muted-foreground">{title}</p>
-        <p className="mt-1 text-sm font-semibold leading-6 text-foreground">
+        <p className="mt-1 text-sm leading-6 font-semibold text-foreground">
           {value}
         </p>
       </div>

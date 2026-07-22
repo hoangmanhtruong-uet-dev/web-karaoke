@@ -1,12 +1,12 @@
 import Link from "next/link"
 import { AlertTriangle, CalendarClock, CheckCircle2, DoorOpen, UsersRound, WalletCards } from "lucide-react"
 
-import { requireAdminPage } from "@/lib/admin-auth"
+import { requirePermissionPage } from "@/lib/admin-auth"
 import { getAdminDashboard } from "@/lib/admin-queries"
 import { formatCurrency } from "@/lib/utils"
 
 export default async function AdminDashboardPage() {
-  const admin = await requireAdminPage()
+  const admin = await requirePermissionPage("dashboard.read")
   const data = await getAdminDashboard()
   const cards = [
     { label: "Booking hôm nay", value: data.today, icon: CalendarClock, tone: "text-sky-200 bg-sky-400/10" },
