@@ -162,15 +162,17 @@ model Booking {
 
 // ContactRequest - Yêu cầu tư vấn gửi từ contact form
 model ContactRequest {
-  id         String        @id @default(uuid())
-  name       String        @db.VarChar(120)
-  phone      String        @db.VarChar(20)
-  email      String?       @db.VarChar(255)
-  message    String        @db.Text
-  status     ContactStatus @default(new)
-  adminNotes AdminNote[]
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
+  id             String        @id @default(uuid())
+  name           String        @db.VarChar(120)
+  phone          String        @db.VarChar(20)
+  email          String?       @db.VarChar(255)
+  message        String        @db.Text
+  idempotencyKey String?       @unique @db.VarChar(100)
+  requestHash    String?       @db.VarChar(64)
+  status         ContactStatus @default(new)
+  adminNotes     AdminNote[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@index([status, createdAt])
   @@index([phone])

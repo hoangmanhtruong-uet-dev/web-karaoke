@@ -10,6 +10,7 @@ import {
   createBooking,
   normalizeRoomTier,
 } from "@/lib/booking-service"
+import { withOperationalErrorHandling } from "@/lib/operational-error"
 import { consumeRateLimit, rateLimitResponse } from "@/lib/rate-limit"
 import { getClientIp } from "@/lib/request-context"
 import {
@@ -62,7 +63,7 @@ function normalizePayload(body: unknown) {
   }
 }
 
-export async function POST(request: Request) {
+async function postBooking(request: Request) {
   const originError = requireSameOrigin(request)
   if (originError) return originError
 
@@ -154,13 +155,8 @@ export async function POST(request: Request) {
         error.message,
         error.fieldErrors
       )
-    console.error("Booking creation failed", {
-      error: error instanceof Error ? error.message : "Unknown error",
-    })
-    return apiError(
-      500,
-      "BOOKING_CREATION_FAILED",
-      "Unable to process the booking request."
-    )
+    throw error
   }
 }
+
+export const POST = withOperationalErrorHandling("booking.create", postBooking)

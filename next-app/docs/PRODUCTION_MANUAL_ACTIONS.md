@@ -1,5 +1,17 @@
 # Production manual actions
 
+Current execution point: **BLOCKED - OPERATOR ACTION REQUIRED (group 1: hosting
+and protected project)**. The provider-specific sequence, environment matrix,
+database role guidance, and evidence format are in:
+
+- `docs/PRIVATE_PRODUCTION_DEPLOYMENT.md`
+- `docs/PRODUCTION_OPERATOR_EVIDENCE_TEMPLATE.md`
+
+Do not proceed to database, secrets, deployment, domain, bootstrap, or public
+traffic until group 1 proves every production URL will be protected. The default
+platform is Render, as confirmed by the operator. Render service configuration and
+protection evidence remain unverified.
+
 Every section is **BLOCKED ? MANUAL ACTION REQUIRED**. Replace placeholders in
 the operator shell or provider UI only. Never paste secrets into tickets, logs,
 screenshots, commits, or this document.

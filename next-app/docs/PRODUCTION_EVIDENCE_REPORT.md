@@ -1,5 +1,56 @@
 # Production evidence report
 
+## Current addendum - 2026-07-22 18:39 ICT
+
+- Current candidate: `23e510659a2551958ed5710dd6a58129e2207365`.
+- Local HEAD, local `origin/main`, and GitHub `main` matched that SHA.
+- GitHub Actions run `29915712602` completed successfully for that SHA.
+- The operator identified Render as the actual platform. No Render service ID,
+  deploy ID, domain, configuration screenshot, or provider session is available.
+- Operator-supplied URL https://website-banhang-gkil.onrender.com is reachable,
+  but it serves MTRUONG-STORE, not the karaoke application. Its health payload,
+  admin redirects, missing karaoke APIs, and security headers do not match this repo.
+  Treat this as a different Render service and do not deploy over it.
+- Correct Render URL: https://web-karaoke-el42.onrender.com. Anonymous runtime
+  smoke at 2026-07-22 19:18 ICT proved homepage 200, liveness 200, readiness
+  503, branches API 500, anonymous admin API 401, invalid payloads 400, and
+  HTTP-to-HTTPS 301. Security headers pass and X-Powered-By is absent.
+- Admin redirects contain callbackUrl=https://0.0.0.0:10000, proving canonical
+  auth/proxy handling is not production-correct. The onrender.com homepage is
+  publicly reachable, so protected/private deployment evidence fails.
+- Operator screenshots at 2026-07-22 19:23 ICT exposed production database,
+  authentication, cron, and email credentials. Values are intentionally omitted.
+  Treat all displayed credentials as compromised and rotate with rollback checks.
+- The screenshots show an Aiven administrative database account in runtime and
+  sslmode=require. No dedicated runtime role, verify-full CA variable, AUTH_URL,
+  canonical origin, trusted proxy mode, expected proxy mode, or separate security
+  hash secret is visible. Absence must be confirmed in Render rather than assumed.
+- Start with group 1 in `docs/PRIVATE_PRODUCTION_DEPLOYMENT.md` and return redacted
+  evidence using `docs/PRODUCTION_OPERATOR_EVIDENCE_TEMPLATE.md`.
+- The historical evidence below remains valid for its stated cutoff, but its older
+  candidate SHA/CI references are superseded by this addendum.
+
+### Current local quality-gate rerun
+
+| Gate                               | Result                                                                        |
+| ---------------------------------- | ----------------------------------------------------------------------------- |
+| `npm ci`                           | PASS - 673 packages, 0 vulnerabilities                                        |
+| `npx prisma generate`              | PASS - Prisma Client 7.9.0                                                    |
+| `npm run lint`                     | PASS                                                                          |
+| `npm run typecheck`                | PASS                                                                          |
+| `npm test`                         | PASS - 25 files / 139 tests                                                   |
+| `npm run test:integration`         | BLOCKED locally - isolated test database unavailable; no production DB action |
+| Remote PostgreSQL integration      | PASS in run `29915712602` for the exact candidate SHA                         |
+| `npm run build`                    | PASS - 37 static pages                                                        |
+| `npm audit --audit-level=moderate` | PASS - 0 vulnerabilities                                                      |
+| `git diff --check`                 | PASS after documentation formatting                                           |
+| `npm run verify:production-env`    | EXPECTED FAIL - no production environment; output redacted                    |
+| Diff secret scan                   | PASS - 0 suspected secret values; only five documentation entries changed     |
+| Payment provider scan              | PASS - 0 provider/webhook matches; real-money payment remains off             |
+
+The local integration rerun first refused an unset test URL, then the explicit
+karaoke_evidence_test target could not connect. No migration reached production.
+
 Evidence cutoff: 2026-07-22 18:07 ICT
 
 ## A. Executive conclusion

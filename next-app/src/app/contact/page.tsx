@@ -139,6 +139,7 @@ export default function ContactPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState("")
   const submissionLockRef = useRef(false)
+  const idempotencyKeyRef = useRef<string | null>(null)
 
   const activeBranches = useMemo(
     () => branches.filter((branch) => branch.status === "active"),
@@ -151,6 +152,7 @@ export default function ContactPage() {
   ) => {
     setForm((current) => ({ ...current, [key]: value }))
     setErrors((current) => ({ ...current, [key]: undefined }))
+    idempotencyKeyRef.current = null
     setSubmitError("")
   }
 
@@ -168,10 +170,15 @@ export default function ContactPage() {
     setIsSubmitting(true)
     setSubmitError("")
 
+    const idempotencyKey = idempotencyKeyRef.current ?? crypto.randomUUID()
+    idempotencyKeyRef.current = idempotencyKey
     try {
       const response = await fetch("/api/contact", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
+        },
         body: JSON.stringify({
           name: form.fullName.trim(),
           phone: form.phone,
@@ -198,6 +205,7 @@ export default function ContactPage() {
       setIsSuccessOpen(true)
       setForm(initialForm)
     } catch {
+      idempotencyKeyRef.current = null
       setSubmitError(
         "Kết nối chưa ổn định. Dữ liệu của bạn vẫn được giữ để thử lại."
       )

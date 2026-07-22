@@ -1,7 +1,12 @@
-import prisma from "@/lib/prisma"
+import { z } from "zod"
+
 import { apiError, apiSuccess } from "@/lib/api-response"
 import { contactRequestSchema } from "@/lib/contact-domain"
-import { enqueueOutbox } from "@/lib/outbox"
+import {
+  ContactBusinessError,
+  createContactRequest,
+} from "@/lib/contact-service"
+import { withOperationalErrorHandling } from "@/lib/operational-error"
 import { consumeRateLimit, rateLimitResponse } from "@/lib/rate-limit"
 import { getClientIp } from "@/lib/request-context"
 import {
@@ -11,7 +16,9 @@ import {
 } from "@/lib/request-security"
 import { emitSecurityAlert } from "@/lib/security-audit"
 
-export async function POST(request: Request) {
+const idempotencyKeySchema = z.string().trim().min(16).max(100)
+
+async function postContact(request: Request) {
   const originError = requireSameOrigin(request)
   if (originError) return originError
 
@@ -31,30 +38,26 @@ export async function POST(request: Request) {
     })
   if (!ipLimit.allowed) return rateLimitResponse(ipLimit)
 
+  const idempotencyKey = idempotencyKeySchema.safeParse(
+    request.headers.get("Idempotency-Key")
+  )
+  if (!idempotencyKey.success)
+    return apiError(400, "INVALID_IDEMPOTENCY_KEY", "A valid Idempotency-Key header is required.")
+
   let body: unknown
   try {
     body = await readJsonBody(request, 12 * 1024)
   } catch (error) {
     if (error instanceof RequestBodyError)
-      return apiError(
-        error.status,
-        error.code,
-        "Request body is invalid or too large."
-      )
+      return apiError(error.status, error.code, "Request body is invalid or too large.")
     return apiError(400, "INVALID_JSON", "Request body is not valid JSON.")
   }
 
   const parsed = contactRequestSchema.safeParse(body)
   if (!parsed.success)
-    return apiError(
-      422,
-      "VALIDATION_ERROR",
-      "Invalid contact details.",
-      parsed.error.flatten().fieldErrors
-    )
+    return apiError(422, "VALIDATION_ERROR", "Invalid contact details.", parsed.error.flatten().fieldErrors)
 
-  const identity =
-    parsed.data.email?.toLowerCase() || parsed.data.phone.replace(/\D/g, "")
+  const identity = parsed.data.email?.toLowerCase() || parsed.data.phone.replace(/\D/g, "")
   const identityLimit = await consumeRateLimit({
     scope: "contact-identity",
     identifier: identity,
@@ -87,42 +90,25 @@ export async function POST(request: Request) {
     })
 
   try {
-    const contactRequest = await prisma.$transaction(async (tx) => {
-      const created = await tx.contactRequest.create({
-        data: {
-          name: parsed.data.name,
-          phone: parsed.data.phone,
-          email: parsed.data.email || null,
-          message: parsed.data.message,
-        },
-        select: { id: true, createdAt: true },
-      })
-      if (notificationLimit.allowed) {
-        await enqueueOutbox(tx, {
-          eventType: "contactRequestCreated",
-          aggregateType: "contactRequest",
-          aggregateId: created.id,
-          idempotencyKey: `contact:${created.id}:created`,
-        })
-      }
-      return created
-    })
+    const contact = await createContactRequest(
+      parsed.data,
+      idempotencyKey.data,
+      notificationLimit.allowed
+    )
     return apiSuccess(
       {
-        contactRequestId: contactRequest.id,
-        createdAt: contactRequest.createdAt.toISOString(),
+        contactRequestId: contact.id,
+        createdAt: contact.createdAt.toISOString(),
+        replayed: contact.replayed,
         message: "Contact request received.",
       },
-      201
+      contact.replayed ? 200 : 201
     )
   } catch (error) {
-    console.error("Contact request persistence failed", {
-      error: error instanceof Error ? error.message : "Unknown error",
-    })
-    return apiError(
-      500,
-      "CONTACT_PERSISTENCE_FAILED",
-      "Unable to save the contact request."
-    )
+    if (error instanceof ContactBusinessError)
+      return apiError(error.status, error.code, error.message)
+    throw error
   }
 }
+
+export const POST = withOperationalErrorHandling("contact.create", postContact)
