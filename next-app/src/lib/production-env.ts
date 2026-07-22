@@ -148,9 +148,9 @@ export function verifyProductionEnvironment(
   const provider = env.EMAIL_PROVIDER?.trim()
   checks.push({
     name: "NOTIFICATION_PROVIDER",
-    status: !provider || provider === "console" ? "WARN" : "PASS",
+    status: !provider || provider === "console" || provider === "disabled" ? "WARN" : "PASS",
     evidence:
-      !provider || provider === "console"
+      !provider || provider === "console" || provider === "disabled"
         ? "external notification delivery is not proven"
         : "external provider selected; delivery evidence is still required",
   })

@@ -146,7 +146,7 @@ Visit [http://localhost:3000](http://localhost:3000) to see the app.
 | `BOOKING_REMINDER_MINUTES` | Reminder lead time | No (defaults to 120) |
 | `JOB_BATCH_SIZE` | Maximum records per job invocation | No (defaults to 25) |
 | `CRON_SECRET` | Bearer secret for internal job endpoints | Yes for HTTP cron |
-| `EMAIL_PROVIDER` | `console` in development or `webhook` | Yes in production |
+| `EMAIL_PROVIDER` | `console` in development, `webhook` for delivery, or `disabled` to intentionally pause the outbox worker | Yes in production |
 | `EMAIL_FROM` | Sender address | Yes for webhook notifications |
 | `EMAIL_WEBHOOK_URL` | Notification provider endpoint | Yes for webhook notifications |
 | `EMAIL_API_KEY` | Notification provider credential | Yes for webhook notifications |

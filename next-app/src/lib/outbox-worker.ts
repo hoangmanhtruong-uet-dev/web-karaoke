@@ -87,6 +87,9 @@ async function processEvent(event: OutboxEvent, now: Date) {
 }
 
 export async function processOutbox(now = new Date(), batchSize = getJobBatchSize()) {
+  if (process.env.EMAIL_PROVIDER?.trim() === "disabled") {
+    return { claimed: 0, processed: 0, failed: 0, disabled: true }
+  }
   const events = await claimEvents(now, batchSize)
   let processed = 0
   for (const event of events) if (await processEvent(event, now)) processed += 1
