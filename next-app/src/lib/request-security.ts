@@ -2,29 +2,19 @@ import { timingSafeEqual } from "node:crypto"
 
 import { apiError } from "@/lib/api-response"
 import { consumeRateLimit, rateLimitResponse } from "@/lib/rate-limit"
-import {
-  getClientIp,
-  hasTrustedProxyConfiguration,
-} from "@/lib/request-context"
+import { getClientIp } from "@/lib/request-context"
 import { emitSecurityAlert, writeSecurityAudit } from "@/lib/security-audit"
 
 export function validateSameOrigin(request: Request) {
   const origin = request.headers.get("origin") ?? request.headers.get("referer")
-  const trustsProxy = hasTrustedProxyConfiguration()
-  const host = trustsProxy
-    ? (request.headers.get("x-forwarded-host") ?? request.headers.get("host"))
-    : request.headers.get("host")
-  if (!origin || !host) return false
+  if (!origin) return false
   try {
     const source = new URL(origin)
-    const forwardedProto = trustsProxy
-      ? request.headers.get("x-forwarded-proto")
-      : null
-    const expectedProtocol =
-      forwardedProto === "https" || forwardedProto === "http"
-        ? `${forwardedProto}:`
-        : new URL(request.url).protocol
-    return source.host === host && source.protocol === expectedProtocol
+    const expected =
+      process.env.NODE_ENV === "production"
+        ? new URL(process.env.PRODUCTION_CANONICAL_ORIGIN ?? "")
+        : new URL(request.url)
+    return source.origin === expected.origin
   } catch {
     return false
   }

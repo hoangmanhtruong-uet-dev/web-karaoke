@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import {
   readJsonBody,
@@ -8,8 +8,11 @@ import {
 } from "@/lib/request-security"
 
 const originalSecret = process.env.CRON_SECRET
+
 afterEach(() => {
-  process.env.CRON_SECRET = originalSecret
+  if (originalSecret === undefined) delete process.env.CRON_SECRET
+  else process.env.CRON_SECRET = originalSecret
+  vi.unstubAllEnvs()
 })
 
 describe("request security", () => {
@@ -45,6 +48,43 @@ describe("request security", () => {
       validateSameOrigin(
         new Request("https://example.com/api", {
           headers: { origin: "http://example.com", host: "example.com" },
+        })
+      )
+    ).toBe(false)
+  })
+
+  it("pins production origin to the canonical URL and ignores forged proxy headers", () => {
+    vi.stubEnv("NODE_ENV", "production")
+    vi.stubEnv("PRODUCTION_CANONICAL_ORIGIN", "https://example.com")
+
+    const forgedHeaders = {
+      "x-forwarded-host": "evil.example",
+      "x-forwarded-proto": "https",
+    }
+    expect(
+      validateSameOrigin(
+        new Request("http://0.0.0.0:10000/api", {
+          headers: { ...forgedHeaders, origin: "https://evil.example" },
+        })
+      )
+    ).toBe(false)
+    expect(
+      validateSameOrigin(
+        new Request("http://0.0.0.0:10000/api", {
+          headers: { ...forgedHeaders, origin: "https://example.com" },
+        })
+      )
+    ).toBe(true)
+  })
+
+  it("fails closed when the production canonical origin is missing", () => {
+    vi.stubEnv("NODE_ENV", "production")
+    vi.stubEnv("PRODUCTION_CANONICAL_ORIGIN", "")
+
+    expect(
+      validateSameOrigin(
+        new Request("https://example.com/api", {
+          headers: { origin: "https://example.com" },
         })
       )
     ).toBe(false)
