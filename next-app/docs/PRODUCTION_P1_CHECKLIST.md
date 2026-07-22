@@ -1,56 +1,32 @@
-# Production P1 deployment checklist
+# Production P1 evidence checklist
 
-Status: **open / NO-GO until every item below has production evidence**.
+Decision: **NO-GO PRODUCTION**
+Reviewed by: Codex workspace review
+Review time: 2026-07-22 18:07 ICT
+Rule: configuration samples and isolated test results are not production evidence.
 
-This checklist is for the production operator. Completing code-level checks or CI
-does not satisfy infrastructure and operational controls. Do not enable a live
-payment provider, deploy to production, or open production traffic as part of
-this checklist without separate approval.
+| Item                            | Status  | Evidence                                                                                                        | Actor | Time                 | Link / ID                                     | Notes and remediation                                                                                      |
+| ------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------- | ----- | -------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Production hosting              | BLOCKED | No hosting CLI, linked project metadata, deployment ID, or hosting session in workspace                         | Codex | 2026-07-22 18:07 ICT | None                                          | Operator must create or identify a private/protected production deployment.                                |
+| Production domain               | BLOCKED | No canonical production domain found in tracked configuration                                                   | Codex | 2026-07-22 18:07 ICT | None                                          | Provide canonical domain and DNS evidence.                                                                 |
+| Public TLS                      | BLOCKED | No production domain available for certificate or HTTP-to-HTTPS validation                                      | Codex | 2026-07-22 18:07 ICT | None                                          | Capture certificate chain, hostname validation, and redirect evidence.                                     |
+| Database TLS CA                 | BLOCKED | `DATABASE_SSL_CA_BASE64` is absent from the review process environment; `.env.example` is not evidence          | Codex | 2026-07-22 18:07 ICT | None                                          | Configure provider CA in the production secret manager and run `npm run verify:production-env`.            |
+| Auth.js production URL          | BLOCKED | `AUTH_URL` and canonical-origin evidence are unavailable                                                        | Codex | 2026-07-22 18:07 ICT | None                                          | Set matching HTTPS `AUTH_URL` and `PRODUCTION_CANONICAL_ORIGIN`.                                           |
+| Trusted proxy mode              | BLOCKED | No hosting topology or header-overwrite evidence                                                                | Codex | 2026-07-22 18:07 ICT | None                                          | Select `vercel`, `cloudflare`, or `single`; prove the proxy overwrites trusted headers.                    |
+| Origin protection               | BLOCKED | No firewall/CDN/load-balancer access                                                                            | Codex | 2026-07-22 18:07 ICT | None                                          | Lock origin to approved proxy paths and prove direct-origin requests fail.                                 |
+| Database least privilege        | BLOCKED | No production role/grant output; code-only URL heuristic is not proof                                           | Codex | 2026-07-22 18:07 ICT | None                                          | Provide redacted role attributes, grants, and denied-operation tests.                                      |
+| Migration credential separation | BLOCKED | No production secret-manager or deployment configuration evidence                                               | Codex | 2026-07-22 18:07 ICT | None                                          | Store migration and runtime credentials separately and prove runtime never receives migration credentials. |
+| Database extension privilege    | BLOCKED | Migration requires `btree_gist`; production installation/ownership is unverified                                | Codex | 2026-07-22 18:07 ICT | `20260721000200_production_booking`           | Preinstall extension with approved migration/owner role and capture extension owner/version.               |
+| Production readiness            | BLOCKED | Isolated smoke returned 200, but no production deployment/domain exists                                         | Codex | 2026-07-22 18:07 ICT | Local evidence only                           | Require production `/api/health/ready` 200 with `Cache-Control: no-store`.                                 |
+| Secret rotation                 | BLOCKED | No production secret-manager access or revoke evidence                                                          | Codex | 2026-07-22 18:07 ICT | None                                          | Rotate in documented order, validate new credentials, and revoke old versions.                             |
+| Bootstrap admin                 | BLOCKED | Bootstrap code is guarded, locked, audited, and one-time by design; it has not run against production           | Codex | 2026-07-22 18:07 ICT | `scripts/bootstrap-admin.ts`                  | Run only after DB/TLS/role gates pass; remove every bootstrap variable immediately.                        |
+| Backup automation               | BLOCKED | No provider backup configuration or successful backup ID                                                        | Codex | 2026-07-22 18:07 ICT | None                                          | Enable encrypted backups, retention, restricted access, and failure alerts.                                |
+| Restore rehearsal               | BLOCKED | No real production backup or isolated restore evidence                                                          | Codex | 2026-07-22 18:07 ICT | None                                          | Restore a named backup into an isolated target and record integrity/RTO/RPO/cleanup.                       |
+| External log drain              | BLOCKED | Application emits structured events, but only console output is proven                                          | Codex | 2026-07-22 18:07 ICT | `src/lib/security-audit.ts`                   | Connect an external drain, configure retention/access, and prove redaction.                                |
+| Security alert delivery         | BLOCKED | No external recipient or delivered test-event evidence                                                          | Codex | 2026-07-22 18:07 ICT | None                                          | Deliver safe test alerts and capture recipient/timestamp/event ID.                                         |
+| Monitoring                      | BLOCKED | No uptime monitor IDs, configuration, or alert delivery                                                         | Codex | 2026-07-22 18:07 ICT | None                                          | Monitor homepage, liveness, and readiness separately over HTTPS.                                           |
+| Payment disabled                | PASS    | No provider SDK/webhook/refund endpoint found; admin payment page performs read-only queries                    | Codex | 2026-07-22 18:07 ICT | `src/app/admin/(protected)/payments/page.tsx` | Keep real-money integrations and secrets absent.                                                           |
+| CI and deployed commit parity   | BLOCKED | Commit `159129e3ebecfeacf09c62c06a1f43bc458dd432` has CI success run `29898986160`; no deployment SHA/ID exists | Codex | 2026-07-22 18:07 ICT | GitHub Actions run 29898986160                | Deploy privately from a CI-success commit, then prove exact deployment SHA.                                |
 
-## Configuration and readiness
-
-- [ ] Store the provider CA PEM as `DATABASE_SSL_CA_BASE64` in the production
-  secret manager; verify the application validates the database certificate and
-  hostname without `DATABASE_SSL_ALLOW_UNVERIFIED`.
-- [ ] Set `AUTH_URL` to the canonical public HTTPS origin.
-- [ ] Set `AUTH_TRUST_HOST=true` only after forwarded host/protocol headers are
-  overwritten by the trusted proxy and direct origin access is blocked.
-- [ ] Set `TRUSTED_PROXY_MODE` to the deployed topology (`cloudflare`, `vercel`,
-  or `single`) and record evidence that the selected proxy owns/overwrites its
-  client-IP and forwarded headers.
-- [ ] From the production load balancer/orchestrator, verify
-  `GET /api/health/ready` returns HTTP `200` with `{"status":"ready"}`; keep the
-  instance out of rotation on any `503`.
-
-## Network, database, and recovery
-
-- [ ] Apply firewall/origin lock so the application origin is reachable only
-  through the approved edge/proxy and required operations paths.
-- [ ] Provision and verify separate least-privilege database roles for runtime
-  CRUD, migrations, and backups; capture grants and a denied-operation test.
-- [ ] Enable encrypted production backups with the approved retention policy,
-  then perform a real restore rehearsal into an isolated database. Record the
-  backup identifier, restore duration, migration result, readiness result, and
-  integration-test result.
-
-## Monitoring and secrets
-
-- [ ] Configure an external security alert/log drain for structured auth, staff,
-  cron, readiness, and rate-limit events; trigger a safe test event and retain
-  proof that an operator received it.
-- [ ] Rotate all production secrets before launch, including database, auth,
-  cron, notification-provider, and security-event hashing secrets. Confirm old
-  credentials are revoked and no development/test value is reused.
-- [ ] Bootstrap the first production admin exactly once with
-  `ALLOW_ADMIN_BOOTSTRAP=true` and the `BOOTSTRAP_ADMIN_*` variables, verify the
-  audited account, then delete every bootstrap variable and redeploy/restart so
-  the bootstrap path is disabled.
-
-## Release gate
-
-- [ ] Attach CI evidence for lint, typecheck, unit tests, PostgreSQL integration
-  tests, build, and dependency audit from the exact commit to be released.
-- [ ] Run the production HTTP smoke suite against the staged/release artifact
-  without enabling live payments or opening production traffic.
-- [ ] Obtain an explicit production GO approval after all P1 evidence has been
-  reviewed. Until then, the release status remains **NO-GO**.
+All `BLOCKED` rows are **BLOCKED ? MANUAL ACTION REQUIRED**. Follow
+`docs/PRODUCTION_MANUAL_ACTIONS.md`; attach redacted evidence and rerun this review.

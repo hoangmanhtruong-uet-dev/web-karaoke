@@ -16,6 +16,7 @@
     "job:process-outbox": "tsx scripts/run-job.ts process-outbox",
     "job:create-reminders": "tsx scripts/run-job.ts create-reminders",
     "test:integration": "vitest run --config vitest.integration.config.ts",
+    "verify:production-env": "tsx scripts/verify-production-env.ts",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit"
   },

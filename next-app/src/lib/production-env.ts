@@ -1,0 +1,199 @@
+import { X509Certificate } from "node:crypto"
+
+export type ProductionEnvironmentCheck = {
+  name: string
+  status: "PASS" | "FAIL" | "WARN"
+  evidence: string
+}
+
+export type ProductionEnvironmentResult = {
+  valid: boolean
+  checks: ProductionEnvironmentCheck[]
+}
+
+const proxyModes = new Set(["cloudflare", "vercel", "single"])
+const privilegedDatabaseUsers = new Set(["postgres", "root", "superuser"])
+
+export function verifyProductionEnvironment(
+  env: Readonly<Record<string, string | undefined>>
+): ProductionEnvironmentResult {
+  const checks: ProductionEnvironmentCheck[] = []
+  const add = (
+    name: string,
+    pass: boolean,
+    passEvidence: string,
+    failEvidence: string
+  ) =>
+    checks.push({
+      name,
+      status: pass ? "PASS" : "FAIL",
+      evidence: pass ? passEvidence : failEvidence,
+    })
+  const secret = (name: string, minimumLength = 32) => {
+    const length = env[name]?.trim().length ?? 0
+    add(
+      name,
+      length >= minimumLength,
+      `configured; length=${length}; minimum=${minimumLength}`,
+      length
+        ? `configured; length=${length}; minimum=${minimumLength}`
+        : "not configured"
+    )
+  }
+
+  add(
+    "NODE_ENV",
+    env.NODE_ENV === "production",
+    "production mode",
+    "must equal production"
+  )
+
+  const databaseUrl = env.DATABASE_URL?.trim()
+  let databaseValid = false
+  if (databaseUrl) {
+    try {
+      const url = new URL(databaseUrl)
+      const user = decodeURIComponent(url.username).toLowerCase()
+      databaseValid =
+        ["postgres:", "postgresql:"].includes(url.protocol) &&
+        Boolean(url.hostname && url.username && url.password) &&
+        !["localhost", "127.0.0.1", "::1"].includes(url.hostname) &&
+        !privilegedDatabaseUsers.has(user) &&
+        ["require", "verify-ca", "verify-full"].includes(
+          url.searchParams.get("sslmode") ?? ""
+        )
+    } catch {
+      databaseValid = false
+    }
+  }
+  add(
+    "DATABASE_URL",
+    databaseValid,
+    "parsed with redaction; non-local PostgreSQL host, non-owner user and verified TLS required",
+    databaseUrl ? "configured but failed safe validation" : "not configured"
+  )
+
+  const encodedCa = env.DATABASE_SSL_CA_BASE64?.trim() ?? ""
+  let caValid = false
+  let caValidity = ""
+  try {
+    if (encodedCa.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(encodedCa))
+      throw new Error("invalid base64")
+    const certificate = new X509Certificate(
+      Buffer.from(encodedCa, "base64").toString("utf8")
+    )
+    caValid = true
+    caValidity = certificate.validTo
+  } catch {
+    caValid = false
+  }
+  add(
+    "DATABASE_SSL_CA_BASE64",
+    caValid,
+    `configured; length=${encodedCa.length}; certificate parsed; validTo=${caValidity}`,
+    encodedCa
+      ? `configured; length=${encodedCa.length}; certificate parsing failed`
+      : "not configured"
+  )
+  add(
+    "DATABASE_SSL_ALLOW_UNVERIFIED",
+    env.DATABASE_SSL_ALLOW_UNVERIFIED !== "true",
+    "unverified TLS is not enabled",
+    "must not be true in production"
+  )
+
+  secret("AUTH_SECRET")
+  secret("SECURITY_EVENT_HASH_SECRET")
+  secret("CRON_SECRET")
+
+  let authUrlValid = false
+  try {
+    const actual = new URL(env.AUTH_URL ?? "")
+    const expected = new URL(env.PRODUCTION_CANONICAL_ORIGIN ?? "")
+    authUrlValid =
+      actual.protocol === "https:" &&
+      actual.origin === expected.origin &&
+      actual.pathname === "/" &&
+      !actual.search &&
+      !actual.hash &&
+      !actual.username &&
+      !actual.password
+  } catch {
+    authUrlValid = false
+  }
+  add(
+    "AUTH_URL",
+    authUrlValid,
+    "matches PRODUCTION_CANONICAL_ORIGIN; values redacted",
+    "AUTH_URL and PRODUCTION_CANONICAL_ORIGIN must be matching canonical HTTPS origins"
+  )
+  add(
+    "AUTH_TRUST_HOST",
+    env.AUTH_TRUST_HOST === "true",
+    "explicitly enabled; proxy/origin evidence is still required",
+    "must equal true after proxy and origin lock are verified"
+  )
+  const proxyMode = env.TRUSTED_PROXY_MODE?.trim()
+  add(
+    "TRUSTED_PROXY_MODE",
+    Boolean(
+      proxyMode &&
+      proxyModes.has(proxyMode) &&
+      proxyMode === env.PRODUCTION_EXPECTED_PROXY_MODE?.trim()
+    ),
+    "supported mode matches PRODUCTION_EXPECTED_PROXY_MODE; values redacted",
+    "supported mode must match PRODUCTION_EXPECTED_PROXY_MODE"
+  )
+
+  const provider = env.EMAIL_PROVIDER?.trim()
+  checks.push({
+    name: "NOTIFICATION_PROVIDER",
+    status: !provider || provider === "console" ? "WARN" : "PASS",
+    evidence:
+      !provider || provider === "console"
+        ? "external notification delivery is not proven"
+        : "external provider selected; delivery evidence is still required",
+  })
+
+  const bootstrapNames = [
+    "ALLOW_ADMIN_BOOTSTRAP",
+    "BOOTSTRAP_ADMIN_EMAIL",
+    "BOOTSTRAP_ADMIN_PASSWORD",
+    "BOOTSTRAP_ADMIN_NAME",
+    "ALLOW_DEV_ADMIN_SEED",
+    "ADMIN_SEED_EMAIL",
+    "ADMIN_SEED_PASSWORD",
+    "ADMIN_SEED_NAME",
+  ]
+  const booleanGuardNames = new Set([
+    "ALLOW_ADMIN_BOOTSTRAP",
+    "ALLOW_DEV_ADMIN_SEED",
+  ])
+  const remainingBootstrapNames = bootstrapNames.filter((name) => {
+    const value = env[name]?.trim()
+    if (!value) return false
+    return booleanGuardNames.has(name) ? value !== "false" : true
+  })
+  add(
+    "BOOTSTRAP_AND_SEED",
+    remainingBootstrapNames.length === 0,
+    "bootstrap and development seed variables are absent",
+    `variables still configured: ${remainingBootstrapNames.join(", ")}`
+  )
+
+  return {
+    valid: checks.every((check) => check.status !== "FAIL"),
+    checks,
+  }
+}
+
+export function renderProductionEnvironmentChecks(
+  result: ProductionEnvironmentResult
+) {
+  return [
+    ...result.checks.map(
+      (check) => `[${check.status}] ${check.name}: ${check.evidence}`
+    ),
+    `RESULT=${result.valid ? "PASS" : "FAIL"}`,
+  ]
+}
