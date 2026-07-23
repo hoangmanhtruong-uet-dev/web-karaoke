@@ -17,6 +17,7 @@
     "job:create-reminders": "tsx scripts/run-job.ts create-reminders",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "verify:production-env": "tsx scripts/verify-production-env.ts",
+    "load:local:sample": "node tests/load/local-sample.mjs",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit"
   },

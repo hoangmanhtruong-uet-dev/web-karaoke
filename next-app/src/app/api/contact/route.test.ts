@@ -2,12 +2,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const createContactRequest = vi.hoisted(() => vi.fn())
 const createOutboxEvent = vi.hoisted(() => vi.fn())
+const findContactRequest = vi.hoisted(() => vi.fn())
 const consumeRateLimit = vi.hoisted(() => vi.fn())
 
 vi.mock("@/lib/prisma", () => ({
   default: (() => {
     const tx = {
-      contactRequest: { create: createContactRequest },
+      $executeRaw: vi.fn(async () => 1),
+      contactRequest: {
+        create: createContactRequest,
+        findUnique: findContactRequest,
+      },
       outboxEvent: { create: createOutboxEvent },
     }
     return {
@@ -30,6 +35,7 @@ function request(body: unknown) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "Idempotency-Key": "contact-request-key-0001",
       Origin: "http://localhost",
       Host: "localhost",
     },
@@ -47,6 +53,8 @@ const allowed = {
 describe("POST /api/contact", () => {
   beforeEach(() => {
     createContactRequest.mockReset()
+    findContactRequest.mockReset()
+    findContactRequest.mockResolvedValue(null)
     createOutboxEvent.mockReset()
     consumeRateLimit.mockReset()
     consumeRateLimit.mockResolvedValue(allowed)
@@ -122,7 +130,7 @@ describe("POST /api/contact", () => {
     expect(response.status).toBe(500)
     expect(await response.json()).toMatchObject({
       success: false,
-      error: { code: "CONTACT_PERSISTENCE_FAILED" },
+      error: { code: "INTERNAL_ERROR" },
     })
     errorSpy.mockRestore()
   })

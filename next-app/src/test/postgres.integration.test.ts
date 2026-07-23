@@ -10,13 +10,62 @@ if (!testDatabaseUrl) {
   )
 }
 
-const databaseName = decodeURIComponent(
-  new URL(testDatabaseUrl).pathname.replace(/^\//, "")
+const productionNamePattern = /(^|[-_.])(prod|production)([-_.]|$)/i
+const managedProductionHostPattern = /(?:^|\.)(?:aivencloud\.com|render\.com)$/i
+const localHostnames = new Set(["localhost", "127.0.0.1", "::1"])
+const originalDatabaseUrl = process.env.DATABASE_URL
+
+function parseDatabaseUrl(value: string, label: string) {
+  try {
+    return new URL(value)
+  } catch {
+    throw new Error(`${label} must be a valid URL`)
+  }
+}
+
+const parsedTestDatabaseUrl = parseDatabaseUrl(
+  testDatabaseUrl,
+  "TEST_DATABASE_URL"
 )
+const databaseName = decodeURIComponent(
+  parsedTestDatabaseUrl.pathname.replace(/^\//, "")
+)
+const testHostname = parsedTestDatabaseUrl.hostname.toLowerCase()
+
+if (!["postgres:", "postgresql:"].includes(parsedTestDatabaseUrl.protocol)) {
+  throw new Error("TEST_DATABASE_URL must use the PostgreSQL protocol")
+}
 if (!/(^|[-_])(ci|test)([-_]|$)/i.test(databaseName)) {
   throw new Error(
     "TEST_DATABASE_URL must point to an isolated database whose name contains test or ci"
   )
+}
+if (
+  productionNamePattern.test(databaseName) ||
+  productionNamePattern.test(testHostname) ||
+  managedProductionHostPattern.test(testHostname)
+) {
+  throw new Error("TEST_DATABASE_URL must not point to a production target")
+}
+if (
+  !localHostnames.has(testHostname) &&
+  process.env.ALLOW_REMOTE_TEST_DATABASE !== "true"
+) {
+  throw new Error(
+    "Remote TEST_DATABASE_URL targets require ALLOW_REMOTE_TEST_DATABASE=true"
+  )
+}
+if (originalDatabaseUrl) {
+  const parsedDatabaseUrl = parseDatabaseUrl(
+    originalDatabaseUrl,
+    "DATABASE_URL"
+  )
+  const target = (url: URL) =>
+    `${url.hostname.toLowerCase()}:${url.port || "5432"}${decodeURIComponent(url.pathname)}`
+
+  if (target(parsedDatabaseUrl) === target(parsedTestDatabaseUrl)) {
+    throw new Error("TEST_DATABASE_URL must be isolated from DATABASE_URL")
+  }
 }
 
 process.env.DATABASE_URL = testDatabaseUrl
@@ -438,6 +487,44 @@ describe("PostgreSQL production invariants", () => {
       ).toBe(0)
     } finally {
       await cleanupBookingFixture(fixture.branch.id)
+    }
+  })
+
+  it("persists one contact row for concurrent retries with one idempotency key", async () => {
+    const { createContactRequest } = await import("@/lib/contact-service")
+    const token = randomUUID()
+    const idempotencyKey = `integration-contact-${token}`
+    const input = {
+      name: "Integration Contact",
+      phone: `091${token.replaceAll("-", "").slice(0, 7)}`,
+      email: `contact-${token}@example.test`,
+      message: "Concurrent idempotency integration test",
+    }
+
+    try {
+      const results = await Promise.all(
+        Array.from({ length: 10 }, () =>
+          createContactRequest(input, idempotencyKey, false)
+        )
+      )
+      expect(new Set(results.map((result) => result.id)).size).toBe(1)
+      expect(results.filter((result) => !result.replayed)).toHaveLength(1)
+      expect(
+        await prisma.contactRequest.count({ where: { idempotencyKey } })
+      ).toBe(1)
+
+      await expect(
+        createContactRequest(
+          { ...input, message: "Conflicting payload" },
+          idempotencyKey,
+          false
+        )
+      ).rejects.toMatchObject({
+        status: 409,
+        code: "IDEMPOTENCY_KEY_REUSED",
+      })
+    } finally {
+      await prisma.contactRequest.deleteMany({ where: { idempotencyKey } })
     }
   })
 })

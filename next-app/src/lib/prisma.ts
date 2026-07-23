@@ -18,7 +18,6 @@ function integerSetting(name: string, fallback: number, maximum: number) {
   return value
 }
 
-
 function postgresConnectionOptions() {
   const configuredUrl = process.env.DATABASE_URL
   if (!configuredUrl) return { connectionString: configuredUrl }
@@ -53,16 +52,34 @@ function postgresConnectionOptions() {
   }
 }
 
-const pool = globalForPool.pgPool ?? new Pool({
-  ...postgresConnectionOptions(),
-  max: integerSetting("DATABASE_POOL_MAX", 5, 50),
-  connectionTimeoutMillis: integerSetting("DATABASE_CONNECT_TIMEOUT_MS", 3_000, 60_000),
-  idleTimeoutMillis: integerSetting("DATABASE_IDLE_TIMEOUT_MS", 30_000, 600_000),
-  query_timeout: integerSetting("DATABASE_QUERY_TIMEOUT_MS", 10_000, 120_000),
-  statement_timeout: integerSetting("DATABASE_STATEMENT_TIMEOUT_MS", 10_000, 120_000),
-  maxLifetimeSeconds: integerSetting("DATABASE_CONNECTION_LIFETIME_SECONDS", 300, 3_600),
-  application_name: "web-karaoke",
-})
+const pool =
+  globalForPool.pgPool ??
+  new Pool({
+    ...postgresConnectionOptions(),
+    max: integerSetting("DATABASE_POOL_MAX", 5, 50),
+    connectionTimeoutMillis: integerSetting(
+      "DATABASE_CONNECT_TIMEOUT_MS",
+      3_000,
+      60_000
+    ),
+    idleTimeoutMillis: integerSetting(
+      "DATABASE_IDLE_TIMEOUT_MS",
+      30_000,
+      600_000
+    ),
+    query_timeout: integerSetting("DATABASE_QUERY_TIMEOUT_MS", 10_000, 120_000),
+    statement_timeout: integerSetting(
+      "DATABASE_STATEMENT_TIMEOUT_MS",
+      10_000,
+      120_000
+    ),
+    maxLifetimeSeconds: integerSetting(
+      "DATABASE_CONNECTION_LIFETIME_SECONDS",
+      300,
+      3_600
+    ),
+    application_name: "web-karaoke",
+  })
 
 const adapter = new PrismaPg(pool)
 
@@ -71,8 +88,16 @@ export const prisma =
   new PrismaClient({
     adapter,
     transactionOptions: {
-      maxWait: integerSetting("DATABASE_TRANSACTION_MAX_WAIT_MS", 3_000, 60_000),
-      timeout: integerSetting("DATABASE_TRANSACTION_TIMEOUT_MS", 10_000, 120_000),
+      maxWait: integerSetting(
+        "DATABASE_TRANSACTION_MAX_WAIT_MS",
+        3_000,
+        60_000
+      ),
+      timeout: integerSetting(
+        "DATABASE_TRANSACTION_TIMEOUT_MS",
+        10_000,
+        120_000
+      ),
     },
   })
 

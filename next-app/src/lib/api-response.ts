@@ -28,7 +28,11 @@ function responseInit(status: number, options?: ResponseOptions) {
   return { status, headers }
 }
 
-export function apiSuccess<Data>(data: Data, status = 200, options?: ResponseOptions) {
+export function apiSuccess<Data>(
+  data: Data,
+  status = 200,
+  options?: ResponseOptions
+) {
   return Response.json(
     { success: true, data } satisfies ApiSuccessBody<Data>,
     responseInit(status, options)

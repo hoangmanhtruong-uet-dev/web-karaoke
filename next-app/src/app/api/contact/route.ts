@@ -42,22 +42,36 @@ async function postContact(request: Request) {
     request.headers.get("Idempotency-Key")
   )
   if (!idempotencyKey.success)
-    return apiError(400, "INVALID_IDEMPOTENCY_KEY", "A valid Idempotency-Key header is required.")
+    return apiError(
+      400,
+      "INVALID_IDEMPOTENCY_KEY",
+      "A valid Idempotency-Key header is required."
+    )
 
   let body: unknown
   try {
     body = await readJsonBody(request, 12 * 1024)
   } catch (error) {
     if (error instanceof RequestBodyError)
-      return apiError(error.status, error.code, "Request body is invalid or too large.")
+      return apiError(
+        error.status,
+        error.code,
+        "Request body is invalid or too large."
+      )
     return apiError(400, "INVALID_JSON", "Request body is not valid JSON.")
   }
 
   const parsed = contactRequestSchema.safeParse(body)
   if (!parsed.success)
-    return apiError(422, "VALIDATION_ERROR", "Invalid contact details.", parsed.error.flatten().fieldErrors)
+    return apiError(
+      422,
+      "VALIDATION_ERROR",
+      "Invalid contact details.",
+      parsed.error.flatten().fieldErrors
+    )
 
-  const identity = parsed.data.email?.toLowerCase() || parsed.data.phone.replace(/\D/g, "")
+  const identity =
+    parsed.data.email?.toLowerCase() || parsed.data.phone.replace(/\D/g, "")
   const identityLimit = await consumeRateLimit({
     scope: "contact-identity",
     identifier: identity,

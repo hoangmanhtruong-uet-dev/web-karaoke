@@ -3,6 +3,7 @@ import { Prisma, RoomStatus, RoomTier } from "@prisma/client"
 
 import prisma from "@/lib/prisma"
 import { apiError, apiSuccess } from "@/lib/api-response"
+import { operationalErrorResponse } from "@/lib/operational-error"
 
 function isRoomStatus(value: string): value is RoomStatus {
   return Object.values(RoomStatus).includes(value as RoomStatus)
@@ -28,6 +29,7 @@ export async function GET(request: NextRequest) {
     const rooms = await prisma.room.findMany({
       where,
       orderBy: { createdAt: "desc" },
+      take: 200,
       select: {
         id: true,
         branchId: true,
@@ -44,8 +46,14 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    return apiSuccess({ rooms })
-  } catch {
+    return apiSuccess({ rooms }, 200, {
+      headers: {
+        "Cache-Control": "public, max-age=30, stale-while-revalidate=60",
+      },
+    })
+  } catch (error) {
+    if (error instanceof Error)
+      return operationalErrorResponse(error, "rooms.list")
     return apiError(500, "ROOMS_LOAD_FAILED", "Không thể tải danh sách phòng.")
   }
 }

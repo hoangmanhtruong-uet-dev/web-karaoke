@@ -10,8 +10,12 @@ export function hasTrustedProxyConfiguration() {
 }
 
 function validIp(value: string | null) {
-  const candidate = value?.split(",")[0]?.trim() ?? ""
-  return isIP(candidate) ? candidate : null
+  const candidate = value?.trim() ?? ""
+  const version = isIP(candidate)
+  if (!version || candidate.includes(",")) return null
+  if (version === 4) return candidate
+  const hostname = new URL(`http://[${candidate}]/`).hostname
+  return hostname.slice(1, -1)
 }
 
 export function getClientIp(request: Request) {

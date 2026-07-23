@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto"
+
 import prisma from "@/lib/prisma"
 import { hashSecurityIdentifier } from "@/lib/request-context"
 
@@ -133,10 +135,13 @@ export async function consumeRateLimit(
   callsUntilCleanup -= 1
   if (callsUntilCleanup <= 0) {
     callsUntilCleanup = CLEANUP_INTERVAL
-    await pruneRateLimitBuckets(now).catch((error: unknown) => {
-      console.error("Rate-limit retention cleanup failed", {
-        error: error instanceof Error ? error.message : "Unknown error",
-      })
+    await pruneRateLimitBuckets(now).catch(() => {
+      console.error(
+        JSON.stringify({
+          level: "error",
+          event: "rate_limit_retention_cleanup_failed",
+        })
+      )
     })
   }
   return decision
@@ -175,6 +180,7 @@ export function rateLimitResponse(decision: RateLimitDecision) {
       headers: {
         "Retry-After": String(Math.max(1, decision.retryAfterSeconds)),
         "Cache-Control": "no-store",
+        "X-Request-ID": randomUUID(),
       },
     }
   )

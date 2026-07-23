@@ -204,8 +204,8 @@ export default function ContactPage() {
 
       setIsSuccessOpen(true)
       setForm(initialForm)
-    } catch {
       idempotencyKeyRef.current = null
+    } catch {
       setSubmitError(
         "Kết nối chưa ổn định. Dữ liệu của bạn vẫn được giữ để thử lại."
       )
