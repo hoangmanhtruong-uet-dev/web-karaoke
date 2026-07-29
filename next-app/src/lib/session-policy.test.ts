@@ -33,6 +33,8 @@ describe("session timeout policy", () => {
       id: user.id,
       role: user.role,
       sessionVersion: user.sessionVersion,
+      twoFactorVerified: false,
+      requiresTwoFactorSetup: false,
       absoluteExpiresAt: now + ABSOLUTE_SESSION_MS,
       lastActivityAt: now,
     })

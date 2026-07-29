@@ -12,6 +12,10 @@ import {
 } from "@/lib/rate-limit"
 import { getClientIp, hashSecurityIdentifier } from "@/lib/request-context"
 import { writeSecurityAudit } from "@/lib/security-audit"
+import {
+  hashRecoveryCode,
+  verifyTotp,
+} from "@/lib/two-factor"
 
 export { passwordSchema } from "@/lib/password-policy"
 
@@ -28,6 +32,8 @@ const credentialsSchema = z.object({
     .max(255)
     .transform((value) => value.toLowerCase()),
   password: loginPasswordSchema,
+  otp: z.string().trim().max(20).optional(),
+  recoveryCode: z.string().trim().max(40).optional(),
 })
 
 export type AuthenticatedAdmin = {
@@ -36,6 +42,8 @@ export type AuthenticatedAdmin = {
   name: string
   role: "staff" | "manager" | "admin"
   sessionVersion: number
+  twoFactorVerified: boolean
+  requiresTwoFactorSetup: boolean
 }
 
 function identifierHash(email: string) {
@@ -98,6 +106,10 @@ export async function authenticateAdmin(
       role: true,
       isActive: true,
       sessionVersion: true,
+      twoFactorEnabled: true,
+      twoFactorSecret: true,
+      twoFactorLastUsedStep: true,
+      twoFactorConfirmedAt: true,
     },
   })
   const passwordMatches = await compare(
@@ -121,6 +133,93 @@ export async function authenticateAdmin(
     return null
   }
 
+  let twoFactorVerified = user.role !== "admin"
+  let requiresTwoFactorSetup = false
+
+  if (user.role === "admin") {
+    if (!user.twoFactorEnabled || !user.twoFactorConfirmedAt) {
+      requiresTwoFactorSetup = true
+    } else {
+      const factorRules: RateLimitRule[] = [
+        {
+          scope: "admin-2fa-account",
+          identifier: user.id,
+          limit: 5,
+          windowMs: 10 * 60 * 1000,
+          blockMs: 15 * 60 * 1000,
+        },
+        ...(ip === "unknown"
+          ? []
+          : [{
+              scope: "admin-2fa-account-ip",
+              identifier: `${user.id}:${ip}`,
+              limit: 5,
+              windowMs: 10 * 60 * 1000,
+              blockMs: 15 * 60 * 1000,
+            }]),
+      ]
+      const factorAttempts = await Promise.all(
+        factorRules.map((rule) => consumeRateLimit(rule, now))
+      )
+      if (factorAttempts.some((decision) => !decision.allowed)) {
+        await writeSecurityAudit({
+          actorId: user.id,
+          actorRole: user.role,
+          action: "auth.2faRateLimited",
+          entityType: "adminUser",
+          entityId: user.id,
+          result: "blocked",
+          request,
+        })
+        return null
+      }
+
+      const otp = parsed.data.otp?.replace(/\s/g, "")
+      if (otp && user.twoFactorSecret) {
+        const result = await verifyTotp(user.twoFactorSecret, otp, {
+          afterTimeStep: user.twoFactorLastUsedStep,
+        })
+        if (result.valid) {
+          const claimed = await prisma.adminUser.updateMany({
+            where: {
+              id: user.id,
+              OR: [
+                { twoFactorLastUsedStep: null },
+                { twoFactorLastUsedStep: { lt: result.timeStep } },
+              ],
+            },
+            data: { twoFactorLastUsedStep: result.timeStep },
+          })
+          twoFactorVerified = claimed.count === 1
+        }
+      } else if (parsed.data.recoveryCode) {
+        const consumed = await prisma.twoFactorRecoveryCode.updateMany({
+          where: {
+            adminUserId: user.id,
+            codeHash: hashRecoveryCode(parsed.data.recoveryCode),
+            usedAt: null,
+          },
+          data: { usedAt: now },
+        })
+        twoFactorVerified = consumed.count === 1
+      }
+
+      if (!twoFactorVerified) {
+        await writeSecurityAudit({
+          actorId: user.id,
+          actorRole: user.role,
+          action: "auth.2faFailed",
+          entityType: "adminUser",
+          entityId: user.id,
+          result: "failure",
+          request,
+        })
+        return null
+      }
+      await clearRateLimit(factorRules)
+    }
+  }
+
   await clearRateLimit(rules.filter((rule) => rule.scope !== "login-ip"))
   await prisma.adminUser.update({
     where: { id: user.id },
@@ -141,5 +240,7 @@ export async function authenticateAdmin(
     name: user.name,
     role: user.role as AuthenticatedAdmin["role"],
     sessionVersion: user.sessionVersion,
+    twoFactorVerified,
+    requiresTwoFactorSetup,
   }
 }

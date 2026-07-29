@@ -1,35 +1,33 @@
 import { NextRequest } from "next/server"
-import { Prisma, RoomStatus, RoomTier } from "@prisma/client"
+import { Prisma } from "@prisma/client"
 
 import prisma from "@/lib/prisma"
 import { apiError, apiSuccess } from "@/lib/api-response"
+import { OCCUPYING_BOOKING_STATUSES, roomHasCapacity, toVietnamBookingWindow } from "@/lib/booking-domain"
 import { operationalErrorResponse } from "@/lib/operational-error"
-
-function isRoomStatus(value: string): value is RoomStatus {
-  return Object.values(RoomStatus).includes(value as RoomStatus)
-}
-
-function isRoomTier(value: string): value is RoomTier {
-  return Object.values(RoomTier).includes(value as RoomTier)
-}
+import { publicRoomsQuerySchema, readQueryRecord } from "@/lib/public-catalog-query"
 
 export async function GET(request: NextRequest) {
   try {
-    const url = new URL(request.url)
-    const branchId = url.searchParams.get("branchId")
-    const status = url.searchParams.get("status")
-    const tier = url.searchParams.get("tier")
+    const queryRecord = readQueryRecord(new URL(request.url).searchParams)
+    if ("error" in queryRecord) {
+      return apiError(400, "INVALID_QUERY_PARAMETER", queryRecord.error ?? "Query parameter không hợp lệ.")
+    }
 
-    const where: Prisma.RoomWhereInput = {}
+    const parsed = publicRoomsQuerySchema.safeParse(queryRecord.record)
+    if (!parsed.success) {
+      return apiError(400, "INVALID_QUERY_PARAMETER", parsed.error.issues[0]?.message ?? "Query parameter không hợp lệ.")
+    }
 
+    const { branchId, status, tier, date, startTime, durationHours, guestCount, limit } = parsed.data
+    const where: Prisma.RoomWhereInput = { status }
     if (branchId) where.branchId = branchId
-    if (status && isRoomStatus(status)) where.status = status
-    if (tier && isRoomTier(tier)) where.tier = tier
+    if (tier) where.tier = tier
 
-    const rooms = await prisma.room.findMany({
+    let rooms = await prisma.room.findMany({
       where,
       orderBy: { createdAt: "desc" },
-      take: 200,
+      take: limit,
       select: {
         id: true,
         branchId: true,
@@ -46,14 +44,35 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    if (guestCount !== undefined) {
+      rooms = rooms.filter((room) => roomHasCapacity(room.capacity, guestCount))
+    }
+
+    if (date && startTime && durationHours !== undefined) {
+      const window = toVietnamBookingWindow(date, startTime, durationHours)
+      if (!window) {
+        return apiError(400, "INVALID_QUERY_PARAMETER", "Ngày, giờ hoặc durationHours không hợp lệ.")
+      }
+
+      const conflicts = await prisma.booking.findMany({
+        where: {
+          roomId: { not: null },
+          status: { in: [...OCCUPYING_BOOKING_STATUSES] },
+          startAt: { lt: window.endAt },
+          endAt: { gt: window.startAt },
+        },
+        select: { roomId: true },
+      })
+      const blockedRoomIds = new Set(conflicts.flatMap((item) => item.roomId ? [item.roomId] : []))
+      rooms = rooms.filter((room) => !blockedRoomIds.has(room.id))
+    }
+
     return apiSuccess({ rooms }, 200, {
       headers: {
         "Cache-Control": "public, max-age=30, stale-while-revalidate=60",
       },
     })
   } catch (error) {
-    if (error instanceof Error)
-      return operationalErrorResponse(error, "rooms.list")
-    return apiError(500, "ROOMS_LOAD_FAILED", "Không thể tải danh sách phòng.")
+    return operationalErrorResponse(error, "rooms.list")
   }
 }

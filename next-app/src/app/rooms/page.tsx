@@ -21,6 +21,8 @@ import {
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
+
+import SafeImage from "@/components/ui/SafeImage"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -247,7 +249,7 @@ export default function RoomsPage() {
             </div>
             <p className="max-w-md text-sm leading-6 text-muted-foreground">
               Mỗi phòng được tuyển chọn theo tiêu chuẩn âm thanh, ánh sáng và
-              trải nghiệm riêng tư của VivaStar.
+              trải nghiệm riêng tư của Royal Karaoke.
             </p>
           </div>
 
@@ -273,10 +275,7 @@ export default function RoomsPage() {
                     className="group relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#10131b] shadow-[0_24px_70px_rgb(0_0_0/0.32)] transition duration-500 hover:-translate-y-1 hover:border-gold/35 hover:shadow-[0_28px_90px_rgb(214_180_106/0.14)]"
                   >
                     <div className="relative h-72 overflow-hidden">
-                      <div
-                        className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-105"
-                        style={{ backgroundImage: `url(${room.imageUrl})` }}
-                      />
+                      <SafeImage src={room.imageUrl} alt={`Ảnh ${room.name}`} fallbackKind="room" fill sizes="(min-width: 1280px) 33vw, (min-width: 1024px) 50vw, 100vw" className="object-cover transition duration-700 group-hover:scale-105" />
                       <div className="absolute inset-0 bg-gradient-to-t from-[#10131b] via-[#10131b]/25 to-transparent" />
                       <div className="absolute inset-0 bg-gradient-to-br from-gold/15 via-transparent to-black/50" />
 
@@ -404,7 +403,7 @@ export default function RoomsPage() {
                 Cần chọn phòng cho tiệc sinh nhật, họp mặt hay sự kiện VIP?
               </h2>
               <p className="mt-5 text-lg leading-8 text-muted-foreground">
-                Đội ngũ VivaStar sẽ gợi ý phòng, combo món ăn và khung giờ phù
+                Đội ngũ Royal Karaoke sẽ gợi ý phòng, combo món ăn và khung giờ phù
                 hợp để buổi tiệc của bạn trọn vẹn hơn.
               </p>
               <Button asChild className="luxury-button mt-8 h-14 rounded-full px-8">
@@ -425,10 +424,7 @@ export default function RoomsPage() {
 
             <div className="grid lg:grid-cols-[1.15fr_0.85fr]">
               <div className="relative min-h-[320px] overflow-hidden lg:min-h-[620px]">
-                <div
-                  className="absolute inset-0 bg-cover bg-center"
-                  style={{ backgroundImage: `url(${selectedRoom.imageUrl})` }}
-                />
+                <SafeImage src={selectedRoom.imageUrl} alt={`Ảnh ${selectedRoom.name}`} fallbackKind="room" fill sizes="(min-width: 1024px) 58vw, 100vw" className="object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0a0c12] via-[#0a0c12]/10 to-transparent" />
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent to-[#0a0c12]/35" />
 

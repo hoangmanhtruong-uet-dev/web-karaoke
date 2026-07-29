@@ -1,3 +1,13 @@
-# Independent local projects are not submodules of this repository.
+# Root tooling and local secrets.
+/node_modules/
+/.env
+/.env.*
+!/.env.example
+*.log
+
+# Independent template projects are not submodules of this repository.
+# See WORKSPACE_CLEANUP_PLAN.md before renaming or deleting either directory.
 /karaoke-luxury/
 /next-monorepo/
+/archive-karaoke-luxury/
+/archive-next-monorepo/

@@ -77,7 +77,7 @@ next-app/
 
 - Node.js 18+ 
 - npm or bun
-- PostgreSQL database
+- PostgreSQL 16+ installed and running locally, or access to a PostgreSQL database
 
 ### Installation
 
@@ -140,6 +140,10 @@ Visit [http://localhost:3000](http://localhost:3000) to see the app.
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `DATABASE_URL` | PostgreSQL connection string | Yes |
+| `DATABASE_SSL_CA_BASE64` / `DATABASE_SSL_CA_FILE` | Aiven/provider CA as base64 PEM or mounted secret file | Production |
+| `DATABASE_SSL_ALLOW_UNVERIFIED` | Local/test escape hatch only; production rejects `true` | No |
+| `TOTP_ENCRYPTION_KEY` | Base64-encoded 32-byte AES key for admin TOTP secrets | Production/admin 2FA |
+| `RECOVERY_CODE_HASH_SECRET` | Independent pepper for one-time recovery-code hashes | Production/admin 2FA |
 | `NEXT_PUBLIC_API_URL` | API base URL | No (defaults to relative) |
 | `AUTH_SECRET` | Auth.js signing secret | Yes |
 | `BOOKING_HOLD_MINUTES` | Pending hold duration | No (defaults to 15) |
@@ -205,6 +209,8 @@ host. A serverless scheduler can instead `POST` to `/api/internal/jobs/expire-bo
 PostgreSQL integration tests must never target production. Set an isolated
 `TEST_DATABASE_URL`, migrate that database separately, and then run
 `npm run test:integration`. The suite deliberately skips when the variable is absent.
+The project does not provision PostgreSQL; create the isolated database and role
+using your local PostgreSQL installation or an approved remote PostgreSQL service.
 
 ## Design System
 

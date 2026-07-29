@@ -2,6 +2,8 @@ import { PrismaClient } from "@prisma/client"
 import { PrismaPg } from "@prisma/adapter-pg"
 import { Pool } from "pg"
 
+import { loadDatabaseCertificateAuthority } from "@/lib/database-ssl"
+
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
@@ -35,10 +37,9 @@ function postgresConnectionOptions() {
   if (!requiresTls) return { connectionString: url.toString() }
 
   url.searchParams.delete("sslmode")
-  const encodedCa = process.env.DATABASE_SSL_CA_BASE64?.trim()
-  const ca = encodedCa
-    ? Buffer.from(encodedCa, "base64").toString("utf8")
-    : undefined
+  const ca = loadDatabaseCertificateAuthority()
+  if (process.env.NODE_ENV === "production" && !ca)
+    throw new Error("Production database TLS requires a CA certificate")
   const allowUnverified =
     process.env.NODE_ENV !== "production" &&
     process.env.DATABASE_SSL_ALLOW_UNVERIFIED === "true"

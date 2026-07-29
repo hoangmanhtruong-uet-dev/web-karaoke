@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 
 import prisma from "@/lib/prisma"
+import { logger } from "@/lib/logger"
 import { hashSecurityIdentifier } from "@/lib/request-context"
 
 export type RateLimitRule = {
@@ -136,12 +137,7 @@ export async function consumeRateLimit(
   if (callsUntilCleanup <= 0) {
     callsUntilCleanup = CLEANUP_INTERVAL
     await pruneRateLimitBuckets(now).catch(() => {
-      console.error(
-        JSON.stringify({
-          level: "error",
-          event: "rate_limit_retention_cleanup_failed",
-        })
-      )
+      logger.error("rate_limit_retention_cleanup_failed")
     })
   }
   return decision

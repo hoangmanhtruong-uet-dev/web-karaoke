@@ -20,10 +20,14 @@ import {
 } from "lucide-react"
 
 import SectionHeading from "@/components/sections/SectionHeading"
+import { siteConfig } from "@/config/site"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+
+import SafeImage from "@/components/ui/SafeImage"
 import { branches } from "@/data/branches"
 import { rooms } from "@/data/rooms"
+import LocalBusinessJsonLd from "@/components/seo/LocalBusinessJsonLd"
 
 const reasons = [
   {
@@ -75,6 +79,7 @@ const formatOpeningHours = (open: string, close: string) => `${open} - ${close}`
 export default function BranchesPage() {
   return (
     <main className="min-h-screen overflow-hidden bg-[#07080c]">
+      {branches.filter((branch) => branch.status === "active").map((branch) => <LocalBusinessJsonLd key={branch.id} branch={branch} />)}
       <section className="relative pt-32 pb-16 lg:pt-40 lg:pb-24">
         <div className="absolute inset-0 bg-gradient-to-b from-[#10131b] via-[#07080c] to-[#07080c]" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgb(214_180_106/0.24),transparent_34%),radial-gradient(circle_at_82%_18%,rgb(25_42_72/0.42),transparent_36%)]" />
@@ -228,10 +233,7 @@ export default function BranchesPage() {
                   className="group relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#10131b] shadow-[0_24px_70px_rgb(0_0_0/0.32)] transition duration-500 hover:-translate-y-1 hover:border-gold/35 hover:shadow-[0_28px_90px_rgb(214_180_106/0.14)]"
                 >
                   <div className="relative h-72 overflow-hidden">
-                    <div
-                      className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-105"
-                      style={{ backgroundImage: `url(${branch.imageUrl})` }}
-                    />
+                    <SafeImage src={branch.imageUrl} alt={`Ảnh chi nhánh ${branch.name}`} fallbackKind="branch" fill sizes="(min-width: 1024px) 50vw, 100vw" className="object-cover transition duration-700 group-hover:scale-105" />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#10131b] via-[#10131b]/35 to-transparent" />
                     <div className="absolute inset-0 bg-gradient-to-br from-gold/15 via-transparent to-black/55" />
 
@@ -413,9 +415,9 @@ export default function BranchesPage() {
 
               <div className="flex flex-col gap-4 sm:flex-row lg:flex-col">
                 <Button asChild className="luxury-button h-14 px-8 text-base">
-                  <Link href="tel:1900123456">
+                  <Link href={siteConfig.hotlineHref}>
                     <Phone className="mr-2 size-5" />
-                    1900 1234 56
+                    {siteConfig.hotline}
                   </Link>
                 </Button>
                 <Button

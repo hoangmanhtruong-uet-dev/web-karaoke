@@ -10,6 +10,9 @@ export type AdminPrincipal = {
   email: string
   role: AdminRole
   mustChangePassword: boolean
+  twoFactorEnabled?: boolean
+  twoFactorVerified?: boolean
+  assignedBranchId?: string | null
 }
 
 export async function getAdminPrincipal(): Promise<AdminPrincipal | null> {
@@ -25,6 +28,8 @@ export async function getAdminPrincipal(): Promise<AdminPrincipal | null> {
       role: true,
       isActive: true,
       mustChangePassword: true,
+      twoFactorEnabled: true,
+      assignedBranchId: true,
       sessionVersion: true,
     },
   })
@@ -35,6 +40,9 @@ export async function getAdminPrincipal(): Promise<AdminPrincipal | null> {
     email: user.email,
     role: user.role,
     mustChangePassword: user.mustChangePassword,
+    twoFactorEnabled: user.twoFactorEnabled,
+    twoFactorVerified: session.user.twoFactorVerified,
+    assignedBranchId: user.assignedBranchId,
   }
 }
 

@@ -17,6 +17,8 @@ const session = {
     role: "admin",
     name: "Admin",
     email: "admin@example.test",
+    twoFactorVerified: true,
+    requiresTwoFactorSetup: false,
   },
 }
 
@@ -28,6 +30,7 @@ const activeUser = {
   isActive: true,
   mustChangePassword: false,
   sessionVersion: 4,
+  twoFactorEnabled: true,
 }
 
 describe("admin session revalidation", () => {
@@ -70,6 +73,8 @@ describe("admin session revalidation", () => {
       email: activeUser.email,
       role: activeUser.role,
       mustChangePassword: false,
+      twoFactorEnabled: true,
+      twoFactorVerified: true,
     })
   })
 })

@@ -4,31 +4,13 @@ import { motion } from "framer-motion"
 import Link from "next/link"
 import { Phone, MessageCircle, Send, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { siteConfig } from "@/config/site"
 
 const contacts = [
-  {
-    label: "Hotline",
-    value: "1900 1234 56",
-    href: "tel:1900123456",
-    icon: Phone,
-    variant: "luxury-button" as const,
-  },
-  {
-    label: "Zalo",
-    value: "Chat với tư vấn viên",
-    href: "#",
-    icon: MessageCircle,
-    variant: "outline" as const,
-  },
-  {
-    label: "Messenger",
-    value: "Gửi tin nhắn",
-    href: "#",
-    icon: Send,
-    variant: "outline" as const,
-  },
+  { label: "Hotline", value: siteConfig.hotline, href: siteConfig.hotlineHref, icon: Phone, variant: "luxury-button" as const },
+  ...(siteConfig.zaloUrl ? [{ label: "Zalo", value: "Chat với tư vấn viên", href: siteConfig.zaloUrl, icon: MessageCircle, variant: "outline" as const }] : []),
+  ...(siteConfig.messengerUrl ? [{ label: "Messenger", value: "Gửi tin nhắn", href: siteConfig.messengerUrl, icon: Send, variant: "outline" as const }] : []),
 ]
-
 export default function ContactCTA() {
   return (
     <section className="relative overflow-hidden py-20 sm:py-24 lg:py-32">
@@ -46,7 +28,7 @@ export default function ContactCTA() {
           <p className="luxury-eyebrow mb-4">Liên hệ</p>
           <h2 className="section-title">Bạn cần hỗ trợ?</h2>
           <p className="section-description mx-auto max-w-2xl mb-10">
-            Đội ngũ tư vấn luôn sẵn sàng qua hotline, Zalo hoặc Messenger
+            Đội ngũ tư vấn luôn sẵn sàng qua hotline hoặc các kênh nhắn tin đang được cấu hình
           </p>
 
           <div className="flex flex-col sm:flex-row sm:flex-wrap justify-center gap-4">

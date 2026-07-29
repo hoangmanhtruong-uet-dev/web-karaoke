@@ -1,31 +1,29 @@
 import { NextRequest } from "next/server"
-import { Prisma, MenuCategory } from "@prisma/client"
 
 import prisma from "@/lib/prisma"
-import { apiSuccess } from "@/lib/api-response"
+import { apiError, apiSuccess } from "@/lib/api-response"
 import { operationalErrorResponse } from "@/lib/operational-error"
+import { publicMenuItemsQuerySchema, readQueryRecord } from "@/lib/public-catalog-query"
 
 export async function GET(request: NextRequest) {
   try {
-    const url = new URL(request.url)
-    const category = url.searchParams.get("category")
-    const isAvailable = url.searchParams.get("isAvailable")
-
-    const where: Prisma.MenuItemWhereInput = {}
-    if (
-      category &&
-      Object.values(MenuCategory).includes(category as MenuCategory)
-    ) {
-      where.category = category as MenuCategory
+    const queryRecord = readQueryRecord(new URL(request.url).searchParams)
+    if ("error" in queryRecord) {
+      return apiError(400, "INVALID_QUERY_PARAMETER", queryRecord.error ?? "Query parameter không hợp lệ.")
     }
-    if (isAvailable !== null) {
-      where.isAvailable = isAvailable === "true"
+
+    const parsed = publicMenuItemsQuerySchema.safeParse(queryRecord.record)
+    if (!parsed.success) {
+      return apiError(400, "INVALID_QUERY_PARAMETER", parsed.error.issues[0]?.message ?? "Query parameter không hợp lệ.")
     }
 
     const menuItems = await prisma.menuItem.findMany({
-      where,
+      where: {
+        isAvailable: parsed.data.isAvailable === "true",
+        ...(parsed.data.category ? { category: parsed.data.category } : {}),
+      },
       orderBy: { createdAt: "desc" },
-      take: 200,
+      take: parsed.data.limit,
       select: {
         id: true,
         name: true,
@@ -46,11 +44,6 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    return operationalErrorResponse(
-      error,
-      "menu-items.list",
-      "MENU_ITEMS_LOAD_FAILED",
-      "Không thể tải danh sách menu."
-    )
+    return operationalErrorResponse(error, "menu-items.list", "MENU_ITEMS_LOAD_FAILED", "Không thể tải danh sách menu.")
   }
 }

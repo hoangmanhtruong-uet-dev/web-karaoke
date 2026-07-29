@@ -57,6 +57,8 @@ describe("admin authentication", () => {
       name: "Admin",
       role: "admin",
       sessionVersion: 3,
+      twoFactorVerified: false,
+      requiresTwoFactorSetup: true,
     })
     expect(mocks.clearRateLimit).toHaveBeenCalledOnce()
     expect(mocks.audit).toHaveBeenCalledWith(

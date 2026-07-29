@@ -5,12 +5,7 @@ import Link from "next/link"
 import { ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-const stats = [
-  { value: "4+", label: "Chi nhánh" },
-  { value: "30+", label: "Phòng hát" },
-  { value: "10k+", label: "Lượt khách" },
-  { value: "4.8/5", label: "Đánh giá" },
-]
+const stats = [{ value: "Riêng tư", label: "Không gian phòng hát" }, { value: "Linh hoạt", label: "Tư vấn theo nhu cầu" }, { value: "Minh bạch", label: "Thông tin dịch vụ" }, { value: "Tận tâm", label: "Hỗ trợ đặt phòng" }]
 
 export default function HeroSection() {
   return (

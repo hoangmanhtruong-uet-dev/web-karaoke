@@ -329,3 +329,5 @@
     box-shadow: 0 16px 42px rgb(0 0 0 / 0.3);
   }
 }
+@media (max-width: 640px) { .backdrop-blur, .backdrop-blur-sm, .backdrop-blur-md, .backdrop-blur-lg, .backdrop-blur-xl, .backdrop-blur-2xl { backdrop-filter: blur(6px); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; } }

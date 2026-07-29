@@ -6,5 +6,5 @@ export async function GET(request: Request) {
   const auth = await authorizeAdminApi("booking.read");
   if (!hasPrincipal(auth)) return auth.response;
   const params = Object.fromEntries(new URL(request.url).searchParams);
-  return apiSuccess(await listAdminBookings(params));
+  return apiSuccess(await listAdminBookings(params, auth.principal));
 }

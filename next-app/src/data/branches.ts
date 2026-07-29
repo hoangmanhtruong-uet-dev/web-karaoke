@@ -1,15 +1,16 @@
 import type { Branch } from "@/types";
+import { siteConfig } from "@/config/site";
 
 export const branches: Branch[] = [
   {
     id: "branch-01",
-    name: "VivaStar Karaoke - Trung Tâm",
-    slug: "vivastar-trung-tam",
+    name: `${siteConfig.brandName} - Trung Tâm`,
+    slug: "royal-trung-tam",
     address: "123 Nguyễn Huệ, Phường Bến Nghé",
     district: "Quận 1",
     city: "Hồ Chí Minh",
-    phone: "028 3822 6688",
-    email: "trungtam@vivastar.vn",
+    phone: siteConfig.hotline,
+    email: "",
     openingHours: {
       open: "09:00",
       close: "06:00",
@@ -26,13 +27,13 @@ export const branches: Branch[] = [
   },
   {
     id: "branch-02",
-    name: "VivaStar Karaoke - Sài Gòn Pearl",
-    slug: "vivastar-sai-gon-pearl",
+    name: `${siteConfig.brandName} - Sài Gòn Pearl`,
+    slug: "royal-sai-gon-pearl",
     address: "92 Nguyễn Hữu Cảnh, Phường 22",
     district: "Quận Bình Thạnh",
     city: "Hồ Chí Minh",
-    phone: "028 3512 7799",
-    email: "saigonpearl@vivastar.vn",
+    phone: siteConfig.hotline,
+    email: "",
     openingHours: {
       open: "10:00",
       close: "06:00",
@@ -49,13 +50,13 @@ export const branches: Branch[] = [
   },
   {
     id: "branch-03",
-    name: "VivaStar Karaoke - Landmark 81",
-    slug: "vivastar-landmark-81",
+    name: `${siteConfig.brandName} - Landmark 81`,
+    slug: "royal-landmark-81",
     address: "Tầng 68, Landmark 81, 208 Nguyễn Hữu Cảnh",
     district: "Quận Bình Thạnh",
     city: "Hồ Chí Minh",
-    phone: "028 3622 8811",
-    email: "landmark81@vivastar.vn",
+    phone: siteConfig.hotline,
+    email: "",
     openingHours: {
       open: "10:00",
       close: "05:00",
@@ -72,13 +73,13 @@ export const branches: Branch[] = [
   },
   {
     id: "branch-04",
-    name: "VivaStar Karaoke - Phú Mỹ Hưng",
-    slug: "vivastar-phu-my-hung",
+    name: `${siteConfig.brandName} - Phú Mỹ Hưng`,
+    slug: "royal-phu-my-hung",
     address: "Số 1 Nguyễn Đức Cảnh, Khu đô thị Phú Mỹ Hưng",
     district: "Quận 7",
     city: "Hồ Chí Minh",
-    phone: "028 5411 3377",
-    email: "phumyhung@vivastar.vn",
+    phone: siteConfig.hotline,
+    email: "",
     openingHours: {
       open: "09:00",
       close: "06:00",

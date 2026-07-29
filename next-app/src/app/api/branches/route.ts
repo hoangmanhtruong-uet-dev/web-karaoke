@@ -1,24 +1,29 @@
 import { NextRequest } from "next/server"
+
 import prisma from "@/lib/prisma"
-import { BranchStatus } from "@prisma/client"
-import { apiSuccess } from "@/lib/api-response"
+import { apiError, apiSuccess } from "@/lib/api-response"
 import { operationalErrorResponse } from "@/lib/operational-error"
+import {
+  publicBranchesQuerySchema,
+  readQueryRecord,
+} from "@/lib/public-catalog-query"
 
 export async function GET(request: NextRequest) {
   try {
-    const url = new URL(request.url)
-    const statusParam = url.searchParams.get("status")
+    const queryRecord = readQueryRecord(new URL(request.url).searchParams)
+    if ("error" in queryRecord) {
+      return apiError(400, "INVALID_QUERY_PARAMETER", queryRecord.error ?? "Query parameter không hợp lệ.")
+    }
 
-    const where =
-      statusParam &&
-      Object.values(BranchStatus).includes(statusParam as BranchStatus)
-        ? { status: statusParam as BranchStatus }
-        : {}
+    const parsed = publicBranchesQuerySchema.safeParse(queryRecord.record)
+    if (!parsed.success) {
+      return apiError(400, "INVALID_QUERY_PARAMETER", parsed.error.issues[0]?.message ?? "Query parameter không hợp lệ.")
+    }
 
     const branches = await prisma.branch.findMany({
-      where,
+      where: { status: parsed.data.status },
       orderBy: { createdAt: "desc" },
-      take: 200,
+      take: parsed.data.limit,
       select: {
         id: true,
         name: true,

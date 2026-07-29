@@ -12,6 +12,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Credentials({
       credentials: {
+        otp: { label: "Mã xác thực", type: "text" },
+        recoveryCode: { label: "Mã khôi phục", type: "text" },
         email: { label: "Email", type: "email" },
         password: { label: "Mật khẩu", type: "password" },
       },
@@ -28,6 +30,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               id: user.id,
               role: user.role,
               sessionVersion: user.sessionVersion,
+              twoFactorVerified: user.twoFactorVerified,
+              requiresTwoFactorSetup: user.requiresTwoFactorSetup,
             }
           : undefined
       )
@@ -40,11 +44,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.role === "staff" ||
           token.role === "manager" ||
           token.role === "admin") &&
-        typeof token.sessionVersion === "number"
+        typeof token.sessionVersion === "number" &&
+        typeof token.twoFactorVerified === "boolean" &&
+        typeof token.requiresTwoFactorSetup === "boolean"
       ) {
         session.user.id = token.id
         session.user.role = token.role
         session.user.sessionVersion = token.sessionVersion
+        session.user.twoFactorVerified = token.twoFactorVerified
+        session.user.requiresTwoFactorSetup = token.requiresTwoFactorSetup
       }
       return session
     },
@@ -52,10 +60,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const pathname = request.nextUrl.pathname
       if (pathname === "/admin/login" || pathname.startsWith("/api/auth"))
         return true
+      const isTwoFactorSetupRoute =
+        pathname === "/admin/2fa/setup" ||
+        pathname.startsWith("/api/admin/me/2fa")
       const hasAdminSession =
         session?.user.role === "staff" ||
         session?.user.role === "manager" ||
-        session?.user.role === "admin"
+        (session?.user.role === "admin" &&
+          (session.user.twoFactorVerified || isTwoFactorSetupRoute))
       if (pathname.startsWith("/api/admin")) {
         return (
           hasAdminSession ||

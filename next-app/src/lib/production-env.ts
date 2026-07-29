@@ -1,4 +1,5 @@
 import { X509Certificate } from "node:crypto"
+import { loadDatabaseCertificateAuthority } from "@/lib/database-ssl"
 
 export type ProductionEnvironmentCheck = {
   name: string
@@ -73,26 +74,30 @@ export function verifyProductionEnvironment(
     databaseUrl ? "configured but failed safe validation" : "not configured"
   )
 
-  const encodedCa = env.DATABASE_SSL_CA_BASE64?.trim() ?? ""
+  const caConfigured = Boolean(
+    env.DATABASE_SSL_CA_BASE64?.trim() ||
+    env.DATABASE_SSL_CA_PEM?.trim() ||
+    env.DATABASE_SSL_CA_FILE?.trim()
+  )
   let caValid = false
   let caValidity = ""
+  let caLength = 0
   try {
-    if (encodedCa.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(encodedCa))
-      throw new Error("invalid base64")
-    const certificate = new X509Certificate(
-      Buffer.from(encodedCa, "base64").toString("utf8")
-    )
+    const ca = loadDatabaseCertificateAuthority(env)
+    if (!ca) throw new Error("missing CA")
+    caLength = ca.length
+    const certificate = new X509Certificate(ca)
     caValid = true
     caValidity = certificate.validTo
   } catch {
     caValid = false
   }
   add(
-    "DATABASE_SSL_CA_BASE64",
+    "DATABASE_SSL_CA",
     caValid,
-    `configured; length=${encodedCa.length}; certificate parsed; validTo=${caValidity}`,
-    encodedCa
-      ? `configured; length=${encodedCa.length}; certificate parsing failed`
+    `configured; length=${caLength}; certificate parsed; validTo=${caValidity}`,
+    caConfigured
+      ? "configured; certificate loading or parsing failed"
       : "not configured"
   )
   add(
@@ -104,6 +109,22 @@ export function verifyProductionEnvironment(
 
   secret("AUTH_SECRET")
   secret("SECURITY_EVENT_HASH_SECRET")
+  secret("RECOVERY_CODE_HASH_SECRET")
+  const totpEncryptionKey = env.TOTP_ENCRYPTION_KEY?.trim() ?? ""
+  let totpKeyValid = false
+  try {
+    totpKeyValid =
+      /^[A-Za-z0-9+/]+={0,2}$/.test(totpEncryptionKey) &&
+      Buffer.from(totpEncryptionKey, "base64").length === 32
+  } catch {
+    totpKeyValid = false
+  }
+  add(
+    "TOTP_ENCRYPTION_KEY",
+    totpKeyValid,
+    "configured as a base64-encoded 32-byte key; value redacted",
+    totpEncryptionKey ? "configured but invalid; value redacted" : "not configured"
+  )
   secret("CRON_SECRET")
 
   let authUrlValid = false

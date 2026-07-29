@@ -5,11 +5,11 @@ import prisma from "@/lib/prisma"
 
 const bookingQuerySchema = z.object({
   page: z.coerce.number().int().positive().catch(1),
-  pageSize: z.coerce.number().int().min(1).max(100).catch(20),
-  search: z.string().trim().max(120).optional(),
+  pageSize: z.coerce.number().int().min(1).max(50).catch(20),
+  search: z.string().trim().max(80).optional(),
   status: z.preprocess((value) => value === "" ? undefined : value, z.nativeEnum(BookingStatus).optional()),
-  branchId: z.preprocess((value) => value === "" ? undefined : value, z.string().trim().optional()),
-  roomId: z.preprocess((value) => value === "" ? undefined : value, z.string().trim().optional()),
+  branchId: z.preprocess((value) => value === "" ? undefined : value, z.string().trim().max(80).optional()),
+  roomId: z.preprocess((value) => value === "" ? undefined : value, z.string().trim().max(80).optional()),
   tier: z.preprocess((value) => value === "" ? undefined : value, z.nativeEnum(RoomTier).optional()),
   from: z.preprocess((value) => value === "" ? undefined : value, z.coerce.date().optional()),
   to: z.preprocess((value) => value === "" ? undefined : value, z.coerce.date().optional()),
@@ -22,47 +22,34 @@ export type BookingAdminQuery = Record<string, unknown>
 
 export function maskPhone(phone: string) {
   const digits = phone.replace(/\D/g, "")
-  return digits.length >= 4 ? `*** *** ${digits.slice(-4)}` : "***"
+  return digits.length >= 4 ? "*** *** " + digits.slice(-4) : "***"
 }
 
-export async function listAdminBookings(input: BookingAdminQuery) {
+export async function listAdminBookings(input: BookingAdminQuery, principal?: { role: string; assignedBranchId?: string | null }) {
   const query = bookingQuerySchema.parse(input)
+  if (query.from && query.to && query.from > query.to) throw new Error("from must be before to")
+  if (query.from && query.to && query.to.getTime() - query.from.getTime() > 31 * 86400000) throw new Error("date range is limited to 31 days")
+  const scope = principal?.role === "staff" ? { branchId: principal.assignedBranchId ?? "__unassigned_staff__" } : {}
   const now = new Date()
   const where: Prisma.BookingWhereInput = {
-    ...(query.search ? { OR: [
-      { code: { contains: query.search, mode: "insensitive" } },
-      { customerName: { contains: query.search, mode: "insensitive" } },
-      { customerPhone: { contains: query.search } },
-      { customerEmail: { contains: query.search, mode: "insensitive" } },
-    ] } : {}),
+    ...scope,
+    ...(query.search ? { OR: [{ code: { contains: query.search, mode: "insensitive" } }, { customerName: { contains: query.search, mode: "insensitive" } }, { customerPhone: { contains: query.search } }, { customerEmail: { contains: query.search, mode: "insensitive" } }] } : {}),
     ...(query.status ? { status: query.status } : {}),
     ...(query.branchId ? { branchId: query.branchId } : {}),
     ...(query.roomId ? { roomId: query.roomId } : {}),
     ...(query.tier ? { room: { tier: query.tier } } : {}),
-    ...(query.from || query.to ? { startAt: { gte: query.from, lte: query.to } } : {}),
+    ...(query.from || query.to ? { startAt: { ...(query.from ? { gte: query.from } : {}), ...(query.to ? { lt: new Date(query.to.getTime() + 86400000) } : {}) } } : {}),
     ...(query.expiringSoon === "true" ? { status: "pending", expiresAt: { gt: now, lte: new Date(now.getTime() + 5 * 60_000) } } : {}),
   }
   const [total, bookings] = await prisma.$transaction([
     prisma.booking.count({ where }),
-    prisma.booking.findMany({
-      where,
-      orderBy: { [query.sort]: query.order },
-      skip: (query.page - 1) * query.pageSize,
-      take: query.pageSize,
-      select: {
-        id: true, code: true, customerName: true, customerPhone: true, guestCount: true,
-        startAt: true, endAt: true, status: true, expiresAt: true, source: true, createdAt: true,
-        branch: { select: { id: true, name: true } },
-        room: { select: { id: true, name: true, tier: true } },
-      },
-    }),
+    prisma.booking.findMany({ where, orderBy: { [query.sort]: query.order }, skip: (query.page - 1) * query.pageSize, take: query.pageSize, select: { id: true, code: true, customerName: true, customerPhone: true, guestCount: true, startAt: true, endAt: true, status: true, expiresAt: true, source: true, createdAt: true, branch: { select: { id: true, name: true } }, room: { select: { id: true, name: true, tier: true } } } }),
   ])
   return { items: bookings.map((booking) => ({ ...booking, customerPhone: maskPhone(booking.customerPhone) })), total, page: query.page, pageSize: query.pageSize, pageCount: Math.ceil(total / query.pageSize) }
 }
-
-export async function getAdminBooking(id: string) {
+export async function getAdminBooking(id: string, principal?: { role: string; assignedBranchId?: string | null }) {
   return prisma.booking.findUnique({
-    where: { id },
+    where: { id, ...(principal?.role === "staff" ? { branchId: principal.assignedBranchId ?? "__unassigned_staff__" } : {}) },
     include: {
       branch: true, room: true, menuItems: { include: { menuItem: true } },
       adminNotes: { include: { author: { select: { name: true, role: true } } }, orderBy: { createdAt: "desc" } },

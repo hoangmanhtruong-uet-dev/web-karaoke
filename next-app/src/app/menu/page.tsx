@@ -4,6 +4,8 @@ import { useState } from "react"
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { Filter, ChevronRight, Star } from "lucide-react"
+
+import SafeImage from "@/components/ui/SafeImage"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
@@ -119,7 +121,7 @@ export default function MenuPage() {
                     {/* Image */}
                     <div className="relative h-48 overflow-hidden rounded-t-xl">
                       <div className="absolute inset-0 bg-gradient-to-br from-[#10131b] via-[#0a0c12] to-[#151923]" />
-                      <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80')] bg-cover bg-center transition-transform duration-700 hover:scale-110" />
+<SafeImage src={item.imageUrl} alt={`Ảnh ${item.name}`} fallbackKind="menu" fill sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw" className="object-cover transition-transform duration-700 hover:scale-110" />
                       <div className="absolute inset-0 bg-gradient-to-t from-[#07080c] via-transparent to-transparent" />
                       
                       {/* Category Badge */}
@@ -216,7 +218,7 @@ export default function MenuPage() {
                 <Card className="glass-panel overflow-hidden transition-all duration-300 hover:border-gold/30 hover:shadow-[0_20px_60px_rgba(214,180,106,0.25)]">
                   <div className="relative h-52 overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-br from-[#10131b] via-[#0a0c12] to-[#151923]" />
-                    <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&q=80')] bg-cover bg-center transition-transform duration-700 hover:scale-110" />
+<SafeImage src={combo.imageUrl} alt={`Ảnh ${combo.name}`} fallbackKind="menu" fill sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" className="object-cover transition-transform duration-700 hover:scale-110" />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#07080c] via-transparent to-transparent" />
                     
                     <div className="absolute bottom-4 left-4">
@@ -267,7 +269,7 @@ export default function MenuPage() {
             className="relative overflow-hidden rounded-3xl bg-[#10131b] p-8 text-center sm:p-16 lg:p-20"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-[#d6b46a/5] via-[#d6b46a/10] to-[#d6b46a/5]" />
-            <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1514362545857-3bc16c4c756d?w=1200&q=80')] bg-cover bg-center opacity-10" />
+<div className="absolute inset-0 bg-gradient-to-br from-gold/10 via-transparent to-transparent" />
             
             <div className="relative z-10 max-w-3xl mx-auto">
               <h2 className="font-heading text-3xl font-bold text-foreground sm:text-4xl lg:text-5xl">

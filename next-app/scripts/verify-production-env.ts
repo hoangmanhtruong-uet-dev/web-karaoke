@@ -1,3 +1,4 @@
+import { logger } from "../src/lib/logger"
 import {
   renderProductionEnvironmentChecks,
   verifyProductionEnvironment,
@@ -5,6 +6,6 @@ import {
 
 const result = verifyProductionEnvironment(process.env)
 
-console.info("Production environment verification (secret values redacted)")
-for (const line of renderProductionEnvironmentChecks(result)) console.info(line)
+logger.info("production_environment_verification_started")
+for (const line of renderProductionEnvironmentChecks(result)) logger.info("production_environment_check", { check: line })
 if (!result.valid) process.exitCode = 1

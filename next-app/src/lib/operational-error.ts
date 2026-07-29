@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto"
 import { Prisma } from "@prisma/client"
 
 import { apiError } from "@/lib/api-response"
+import { logger } from "@/lib/logger"
 
 const DEPENDENCY_CODES = new Set([
   "P1000",
@@ -109,16 +110,12 @@ export function operationalErrorResponse(
 ) {
   const requestId = randomUUID()
   const unavailable = isDependencyUnavailable(error)
-  console.error(
-    JSON.stringify({
-      level: "error",
-      event,
-      requestId,
-      category: unavailable ? "dependency_unavailable" : "unexpected_error",
-      errorType: error instanceof Error ? error.constructor.name : typeof error,
-      errorCode: errorCode(error),
-    })
-  )
+  logger.error(event, {
+    requestId,
+    category: unavailable ? "dependency_unavailable" : "unexpected_error",
+    errorType: error instanceof Error ? error.constructor.name : typeof error,
+    errorCode: errorCode(error) ?? undefined,
+  })
   return unavailable
     ? apiError(
         503,

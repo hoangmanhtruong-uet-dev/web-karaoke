@@ -49,7 +49,7 @@ export const promotions: Promotion[] = [
     description:
       "Chủ động chọn phòng đẹp và khung giờ lý tưởng với đặc quyền dành riêng cho khách đặt lịch sớm.",
     condition:
-      "Áp dụng cho đặt phòng trước ít nhất 24 giờ và xác nhận giữ chỗ theo hướng dẫn của VivaStar.",
+      "Áp dụng cho đặt phòng trước ít nhất 24 giờ và xác nhận giữ chỗ theo hướng dẫn của Royal Karaoke.",
     validTime: "Áp dụng quanh năm",
     highlight: "Ưu tiên phòng đẹp",
   },
@@ -59,7 +59,7 @@ export const promotionFaqs: PromotionFaq[] = [
   {
     question: "Ưu đãi có được cộng dồn với voucher khác không?",
     answer:
-      "Mỗi lượt đặt phòng chỉ áp dụng một chương trình ưu đãi, trừ khi có thông báo riêng từ VivaStar.",
+      "Mỗi lượt đặt phòng chỉ áp dụng một chương trình ưu đãi, trừ khi có thông báo riêng từ Royal Karaoke.",
   },
   {
     question: "Tôi cần đặt trước bao lâu để nhận ưu đãi?",

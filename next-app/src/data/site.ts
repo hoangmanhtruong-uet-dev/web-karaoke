@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react"
+
 import {
   CalendarCheck,
   Clock3,
@@ -13,21 +14,18 @@ import {
   Utensils,
 } from "lucide-react"
 
+import { siteConfig } from "@/config/site"
+
+export { siteConfig }
+
 export const brand = {
-  name: "Royal Karaoke",
-  shortDescription:
-    "Không gian giải trí sang trọng, âm thanh đỉnh cao và dịch vụ chuẩn VIP.",
-  description:
-    "Royal Karaoke mang đến không gian giải trí đẳng cấp với phòng hát sang trọng, âm thanh hiện đại và dịch vụ tận tâm cho mọi cuộc vui.",
-  tagline: "Luxury sound • Private room • Premium service",
+  name: siteConfig.brandName,
+  shortDescription: siteConfig.shortDescription,
+  description: siteConfig.description,
+  tagline: siteConfig.tagline,
 } as const
 
-export const contactInfo = {
-  hotline: "028 3822 6688",
-  hotlineHref: "tel:02838226688",
-  branchSummary: "4 chi nhánh tại TP. Hồ Chí Minh",
-  openingHours: "09:00 - 06:00",
-} as const
+export const contactInfo = siteConfig
 
 export type NavItem = {
   name: string

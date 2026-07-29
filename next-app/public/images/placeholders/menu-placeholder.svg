@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" role="img" aria-labelledby="title desc">
+  <title id="title">Ảnh món ăn và thức uống</title>
+  <desc id="desc">Placeholder ảnh menu</desc>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#191815"/><stop offset="1" stop-color="#10131b"/></linearGradient></defs>
+  <rect width="1200" height="720" fill="url(#bg)"/>
+  <circle cx="600" cy="350" r="150" fill="#07080c" stroke="#d6b46a" stroke-opacity=".45" stroke-width="5"/>
+  <path d="M520 300h160v110H520z" fill="#d6b46a" opacity=".25"/><path d="M540 275v-38M660 275v-38" stroke="#d6b46a" stroke-width="12" stroke-linecap="round"/>
+</svg>

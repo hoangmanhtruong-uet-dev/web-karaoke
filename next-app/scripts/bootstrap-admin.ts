@@ -1,6 +1,7 @@
 import { hash } from "bcryptjs"
 import { z } from "zod"
 
+import { logger } from "../src/lib/logger"
 import prisma from "../src/lib/prisma"
 import { passwordSchema } from "../src/lib/password-policy"
 
@@ -62,14 +63,12 @@ async function bootstrap() {
       },
     })
   })
-  console.info(
-    "Initial admin created; remove bootstrap environment variables now"
-  )
+  logger.info("admin_bootstrap_created", { actionRequired: "remove_bootstrap_environment_variables" })
 }
 
 bootstrap()
   .catch((error: unknown) => {
-    console.error(error instanceof Error ? error.message : "Bootstrap failed")
+    logger.error("admin_bootstrap_failed", { errorCode: error instanceof Error ? error.constructor.name : "UNKNOWN" })
     process.exitCode = 1
   })
   .finally(async () => prisma.$disconnect())

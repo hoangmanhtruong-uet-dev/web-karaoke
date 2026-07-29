@@ -36,7 +36,7 @@ describe("booking submit flow", () => {
           imageUrl: null,
         }] } }))
       }
-      if (url.endsWith("/api/rooms")) {
+      if (url.includes("/api/rooms")) {
         return Promise.resolve(jsonResponse({ success: true, data: { rooms: [{
           id: "room-1",
           branchId: "branch-1",
@@ -72,6 +72,10 @@ describe("booking submit flow", () => {
       target: { value: "19:00" },
     })
 
+    const duration = screen.getByRole("combobox", { name: "Thời lượng *" }) as HTMLSelectElement
+    expect(duration.value).toBe("3")
+    fireEvent.change(duration, { target: { value: "12" } })
+
     const form = document.getElementById("booking-form") as HTMLFormElement
     fireEvent.submit(form)
     fireEvent.submit(form)
@@ -80,6 +84,9 @@ describe("booking submit flow", () => {
       const postCalls = fetchMock.mock.calls.filter((call) => call[1]?.method === "POST")
       expect(postCalls).toHaveLength(1)
       expect(new Headers(postCalls[0][1]?.headers).get("Idempotency-Key")).toBeTruthy()
+      expect(JSON.parse(String(postCalls[0][1]?.body))).toEqual(
+        expect.objectContaining({ durationHours: 12 })
+      )
     })
 
     resolveBooking(jsonResponse({

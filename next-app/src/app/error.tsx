@@ -1,0 +1,2 @@
+﻿"use client"
+export default function Error({ reset }: { error: Error & { digest?: string }; reset: () => void }) { return <main className="flex min-h-screen items-center justify-center bg-[#07080c] px-6"><div className="max-w-md text-center"><h1 className="font-heading text-3xl font-bold text-foreground">Trang chưa sẵn sàng</h1><p className="mt-3 text-muted-foreground">Dịch vụ đang gặp trục trặc tạm thời. Bạn có thể thử tải lại.</p><button onClick={reset} className="luxury-button mt-6 rounded-full px-6 py-3">Thử lại</button></div></main> }

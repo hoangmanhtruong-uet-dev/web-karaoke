@@ -1,11 +1,11 @@
 import type { Room, RoomTier } from "@/types"
 
-export function getAvailableRoomTiers(rooms: Room[], branchId: string): RoomTier[] {
+export function getAvailableRoomTiers(rooms: Room[] | undefined, branchId: string): RoomTier[] {
   if (!branchId) return []
 
   return Array.from(
     new Set(
-      rooms
+      (rooms ?? [])
         .filter((room) => room.branchId === branchId && room.status === "available")
         .map((room) => room.tier)
     )

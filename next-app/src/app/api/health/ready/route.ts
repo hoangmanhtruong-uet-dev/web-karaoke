@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma"
+import { logger } from "@/lib/logger"
 import { hasTrustedProxyConfiguration } from "@/lib/request-context"
 
 const reportedConfigurationFailures = new Set<string>()
@@ -16,13 +17,7 @@ function unavailable() {
 function reportConfigurationFailureOnce(reason: string) {
   if (reportedConfigurationFailures.has(reason)) return
   reportedConfigurationFailures.add(reason)
-  console.error(
-    JSON.stringify({
-      level: "error",
-      type: "security_configuration",
-      reason,
-    })
-  )
+  logger.error("security_configuration", { reason, errorCode: "CONFIGURATION_INVALID" })
 }
 
 export async function GET() {

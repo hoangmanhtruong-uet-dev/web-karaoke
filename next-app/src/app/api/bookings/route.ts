@@ -141,6 +141,8 @@ async function postBooking(request: Request) {
     return apiSuccess(
       {
         bookingId: result.bookingId,
+        bookingCode: result.bookingCode,
+        status: result.status,
         replayed: result.replayed,
         expiresAt: result.expiresAt?.toISOString() ?? null,
         message: "Booking request received.",

@@ -21,17 +21,19 @@ import {
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
+import { BookingStatusBadge } from "@/components/booking/BookingStatusBadge"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog"
 import { bookingTrustItems, brand } from "@/data/site"
 import type { ApiResponse } from "@/lib/api-response"
 import { getAvailableRoomTiers, shouldResetRoomTier } from "@/lib/booking-client"
+import { BOOKING_DURATION_OPTIONS, DEFAULT_DURATION_HOURS, MAX_DURATION_HOURS, MIN_DURATION_HOURS, formatBookingTime, getBookingEndTime, isValidDurationHours } from "@/lib/booking-duration"
 import { cn, formatCurrency, isValidVietnamPhone, normalizePhoneInput } from "@/lib/utils"
+import { getBookingStatusMeta } from "@/lib/booking-status"
 import type { Branch, MenuItem, Room, RoomTier } from "@/types"
 
 type BookingForm = {
@@ -41,6 +43,7 @@ type BookingForm = {
   roomTier: "" | RoomTier
   date: string
   startTime: string
+  durationHours: number
   guestCount: number
   selectedMenuIds: string[]
   note: string
@@ -50,6 +53,8 @@ type BookingErrors = Partial<Record<keyof BookingForm, string>>
 
 type BookingApiResponse = ApiResponse<{
   bookingId: string
+  bookingCode: string
+  status: string
   replayed: boolean
   expiresAt: string | null
   message: string
@@ -57,7 +62,7 @@ type BookingApiResponse = ApiResponse<{
 
 type BookingField = keyof Pick<
   BookingForm,
-  "customerName" | "customerPhone" | "branchId" | "date" | "startTime" | "guestCount"
+  "customerName" | "customerPhone" | "branchId" | "date" | "startTime" | "durationHours" | "guestCount"
 >
 
 const MIN_GUESTS = 1
@@ -73,6 +78,7 @@ const initialForm: BookingForm = {
   roomTier: "",
   date: "",
   startTime: "",
+  durationHours: DEFAULT_DURATION_HOURS,
   guestCount: 2,
   selectedMenuIds: [],
   note: "",
@@ -92,7 +98,7 @@ const steps = [
   {
     title: "Lịch hẹn",
     description: "Ngày, giờ và số khách",
-    fields: ["date", "startTime", "guestCount"] satisfies BookingField[],
+    fields: ["date", "startTime", "durationHours", "guestCount"] satisfies BookingField[],
   },
 ]
 
@@ -116,6 +122,14 @@ const inputClassName =
 const fieldLabelClassName = "text-sm font-medium text-foreground"
 
 const errorClassName = "mt-1.5 text-xs leading-5 text-rose-200"
+
+function friendlySubmitError(code?: string, status?: number) {
+  if (code === "VALIDATION_ERROR") return "Thong tin chua hop le. Ban kiem tra cac truong duoc danh dau roi thu lai."
+  if (code === "CONFLICT" || code === "BOOKING_CONFLICT") return "Khung gio nay vua co nguoi dat. Ban chon gio hoac hang phong khac nhe."
+  if (code === "RATE_LIMITED") return "Ban da thu qua nhieu lan. Vui long cho mot luc roi thu lai."
+  if (status === 503 || code === "DEPENDENCY_UNAVAILABLE") return "He thong dang tam thoi ban. Ban thu lai sau it phut hoac goi hotline."
+  return "Khong the gui yeu cau luc nay. Vui long kiem tra thong tin va thu lai."
+}
 
 function getTodayInputValue() {
   const today = new Date()
@@ -166,6 +180,10 @@ function validateBookingForm(form: BookingForm) {
     errors.startTime = "Bạn chọn giờ bắt đầu dự kiến nhé."
   }
 
+  if (!isValidDurationHours(form.durationHours)) {
+    errors.durationHours = `Thời lượng phải từ ${MIN_DURATION_HOURS} đến ${MAX_DURATION_HOURS} giờ.`
+  }
+
   if (
     !Number.isFinite(form.guestCount) ||
     form.guestCount < MIN_GUESTS ||
@@ -182,8 +200,9 @@ export default function BookingPage() {
   const [errors, setErrors] = useState<BookingErrors>({})
   const [isSuccessOpen, setIsSuccessOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [submitMessage, setSubmitMessage] = useState("")
   const [bookingExpiresAt, setBookingExpiresAt] = useState<string | null>(null)
+  const [bookingCode, setBookingCode] = useState<string | null>(null)
+  const [bookingStatus, setBookingStatus] = useState("pending")
   const [submitError, setSubmitError] = useState("")
   const submissionLockRef = useRef(false)
   const idempotencyKeyRef = useRef<string | null>(null)
@@ -195,6 +214,9 @@ export default function BookingPage() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
   const [isLoadingData, setIsLoadingData] = useState(true)
   const [dataLoadError, setDataLoadError] = useState("")
+  const [availabilityLoading, setAvailabilityLoading] = useState(false)
+  const [availabilityError, setAvailabilityError] = useState("")
+  const [availabilityRetry, setAvailabilityRetry] = useState(0)
 
   // Fetch branches, rooms, and menu items on mount
   useEffect(() => {
@@ -222,11 +244,10 @@ export default function BookingPage() {
           throw new Error("Booking catalog response was unsuccessful")
         }
 
-        setBranches(branchesData.data.branches)
-        setRooms(roomsData.data.rooms)
-        setMenuItems(menuItemsData.data.menuItems)
-      } catch (error) {
-        console.error("Failed to load booking data:", error)
+        setBranches(Array.isArray(branchesData.data.branches) ? branchesData.data.branches : [])
+        setRooms(Array.isArray(roomsData.data.rooms) ? roomsData.data.rooms : [])
+        setMenuItems(Array.isArray(menuItemsData.data.menuItems) ? menuItemsData.data.menuItems : [])
+      } catch {
         setDataLoadError("Không thể kết nối dữ liệu karaoke. Vui lòng tải lại trang hoặc liên hệ hotline.")
       } finally {
         setIsLoadingData(false)
@@ -236,6 +257,37 @@ export default function BookingPage() {
     fetchData()
   }, [])
 
+  useEffect(() => {
+    if (!form.branchId || !form.date || !form.startTime || !isValidDurationHours(form.durationHours)) return
+
+    const controller = new AbortController()
+    async function refreshAvailability() {
+      try {
+        setAvailabilityLoading(true)
+        setAvailabilityError("")
+        const params = new URLSearchParams({
+          branchId: form.branchId,
+          date: form.date,
+          startTime: form.startTime,
+          durationHours: String(form.durationHours),
+          capacity: String(form.guestCount),
+        })
+        if (form.branchId) params.set("branchId", form.branchId)
+        if (form.roomTier) params.set("roomTier", form.roomTier)
+        const response = await fetch(`/api/availability?${params.toString()}`, { signal: controller.signal })
+        const result = (await response.json()) as ApiResponse<{ rooms: Room[] }>
+        if (!response.ok || !result.success) throw new Error("Availability request failed")
+        setRooms(Array.isArray(result.data.rooms) ? result.data.rooms : [])
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return
+        setAvailabilityError("Không thể kiểm tra phòng theo khung giờ mới. Vui lòng thử lại.")
+      } finally {
+        if (!controller.signal.aborted) setAvailabilityLoading(false)
+      }
+    }
+    refreshAvailability()
+    return () => controller.abort()
+  }, [form.branchId, form.date, form.durationHours, form.guestCount, form.roomTier, form.startTime, availabilityRetry])
   const activeBranches = useMemo(
     () => branches.filter((branch) => branch.status === "active"),
     [branches]
@@ -276,6 +328,7 @@ export default function BookingPage() {
   )
 
   const menuTotal = selectedMenuItems.reduce((total, item) => total + item.price, 0)
+  const bookingEndTime = getBookingEndTime(form.date, form.startTime, form.durationHours)
   const activeStep = getActiveStep(form)
   const completedStepCount = steps.filter((step) =>
     getStepCompletion(form, step.fields)
@@ -328,7 +381,6 @@ export default function BookingPage() {
     if (submissionLockRef.current) return
 
     setSubmitError("")
-    setSubmitMessage("")
 
     const nextErrors = validateBookingForm(form)
     setErrors(nextErrors)
@@ -355,7 +407,7 @@ export default function BookingPage() {
           roomType: form.roomTier,
           date: form.date,
           time: form.startTime,
-          durationHours: 3,
+          durationHours: form.durationHours,
           guests: form.guestCount,
           selectedMenuItems: form.selectedMenuIds,
           note: form.note.trim(),
@@ -366,7 +418,7 @@ export default function BookingPage() {
 
       if (!response.ok || !result.success) {
         const apiError = result.success ? undefined : result.error
-        setSubmitError(apiError?.message || "Không thể gửi yêu cầu đặt phòng.")
+        setSubmitError(friendlySubmitError(apiError?.code, response.status))
 
         const serverErrors = apiError?.fieldErrors
 
@@ -379,6 +431,7 @@ export default function BookingPage() {
             roomTier: serverErrors.roomTier?.[0],
             date: serverErrors.date?.[0],
             startTime: serverErrors.startTime?.[0],
+            durationHours: serverErrors.durationHours?.[0],
             guestCount: serverErrors.guestCount?.[0],
             note: serverErrors.note?.[0],
           }))
@@ -388,9 +441,9 @@ export default function BookingPage() {
 
         return
       }
-
-      setSubmitMessage(result.data.message)
       setBookingExpiresAt(result.data.expiresAt)
+      setBookingCode(result.data.bookingCode)
+      setBookingStatus(result.data.status)
       setIsSuccessOpen(true)
       setForm(initialForm)
       idempotencyKeyRef.current = null
@@ -425,7 +478,7 @@ export default function BookingPage() {
               className="mb-5 border-gold/30 bg-[#10131b]/75 text-gold shadow-lg shadow-gold/10 backdrop-blur"
             >
               <Sparkles className="mr-2 size-3.5 fill-gold text-gold" />
-              Concierge xác nhận trong vài phút
+              Gửi yêu cầu, chờ nhân viên xác nhận
             </Badge>
             <h1 className="font-heading text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-7xl">
               Đặt phòng {brand.name}
@@ -599,7 +652,7 @@ export default function BookingPage() {
                                <div className="flex items-start justify-between gap-3">
                                  <div>
                                    <p className="font-semibold text-foreground">
-                                     {branch.name.replace("VivaStar Karaoke - ", "")}
+                                     {branch.name.split(" - ").slice(1).join(" - ")}
                                    </p>
                                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
                                      {branch.address}, {branch.district}
@@ -717,7 +770,7 @@ export default function BookingPage() {
                   title="Lịch hẹn"
                   description="Chọn thời điểm dự kiến, có thể điều chỉnh khi nhân viên gọi lại."
                 >
-                  <div className="grid gap-4 md:grid-cols-3">
+                  <div className="grid gap-4 md:grid-cols-4">
                     <label className="space-y-2">
                       <span className={fieldLabelClassName}>Ngày đặt *</span>
                       <input
@@ -743,6 +796,25 @@ export default function BookingPage() {
                       {errors.startTime && (
                         <p className={errorClassName}>{errors.startTime}</p>
                       )}
+                    </label>
+
+                    <label className="space-y-2">
+                      <span className={fieldLabelClassName}>Thời lượng *</span>
+                      <select
+                        value={form.durationHours}
+                        onChange={(event) => updateForm("durationHours", Number(event.target.value))}
+                        className={inputClassName}
+                        aria-label="Thời lượng *"
+                        aria-invalid={Boolean(errors.durationHours)}
+                      >
+                        {BOOKING_DURATION_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-muted-foreground">Mặc định {DEFAULT_DURATION_HOURS} giờ</p>
+                      {errors.durationHours && <p className={errorClassName}>{errors.durationHours}</p>}
                     </label>
 
                     <div className="space-y-2">
@@ -786,6 +858,17 @@ export default function BookingPage() {
                         <p className={errorClassName}>{errors.guestCount}</p>
                       )}
                     </div>
+                  </div>
+                  <div className="mt-4 rounded-2xl border border-gold/20 bg-gold/5 p-4 text-sm">
+                    <p className="font-semibold text-foreground">Kết thúc dự kiến</p>
+                    <p className="mt-1 text-muted-foreground">
+                      {formatBookingTime(bookingEndTime)}
+                    </p>
+                    <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                      Hệ thống sẽ kiểm tra lại phòng trống khi bạn thay đổi ngày, giờ hoặc thời lượng.
+                    </p>
+                    {availabilityLoading && <p role="status" className="mt-2 text-xs text-gold">Đang kiểm tra phòng theo khung giờ mới...</p>}
+                    {availabilityError && <div className="mt-2 flex flex-wrap items-center gap-3"><p role="alert" className="text-xs text-rose-200">{availabilityError}</p><button type="button" onClick={() => setAvailabilityRetry((value) => value + 1)} className="text-xs font-semibold text-gold underline">Thu lai</button></div>}
                   </div>
                 </FormSection>
 
@@ -895,6 +978,8 @@ export default function BookingPage() {
                 selectedBranchName={selectedBranch?.name}
                 selectedMenuItems={selectedMenuItems}
                 menuTotal={menuTotal}
+                estimatedRoom={suggestedRooms[0]}
+                bookingEndTime={bookingEndTime}
               />
             </aside>
           </div>
@@ -906,7 +991,7 @@ export default function BookingPage() {
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-foreground">
               {selectedBranch
-                ? selectedBranch.name.replace("VivaStar Karaoke - ", "")
+                ? selectedBranch.name.split(" - ").slice(1).join(" - ")
                 : "Chưa chọn chi nhánh"}
             </p>
             <p className="text-xs text-muted-foreground">
@@ -934,13 +1019,13 @@ export default function BookingPage() {
           <DialogTitle className="text-center font-heading text-2xl font-bold">
             Đã nhận yêu cầu đặt phòng
           </DialogTitle>
-          <DialogDescription className="text-center text-base leading-7">
-            {submitMessage ||
-              `${brand.name} đã lưu thông tin của bạn. Nhân viên concierge sẽ gọi xác nhận chi nhánh, hạng phòng và khung giờ trong ít phút.`}
-          </DialogDescription>
+          {bookingCode && <p className="text-center text-sm font-semibold text-gold">Mã booking: {bookingCode}</p>}
+          <div className="mt-4 flex justify-center"><BookingStatusBadge status={bookingStatus} /></div>
+          <p className="mt-3 text-center text-sm leading-6 text-muted-foreground">{getBookingStatusMeta(bookingStatus).description}</p>
+          <p className="mt-2 text-center text-sm leading-6 text-muted-foreground"><span className="font-semibold text-foreground">Bước tiếp theo:</span> {getBookingStatusMeta(bookingStatus).nextStep}</p>
           {bookingExpiresAt && (
             <p className="text-center text-sm text-gold">
-              Giữ chỗ đến {new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", dateStyle: "short", timeStyle: "short" }).format(new Date(bookingExpiresAt))}
+              Yêu cầu giữ chỗ tạm thời đến {new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", dateStyle: "short", timeStyle: "short" }).format(new Date(bookingExpiresAt))}
             </p>
           )}
           <Button
@@ -1049,11 +1134,15 @@ function BookingSummary({
   selectedBranchName,
   selectedMenuItems,
   menuTotal,
+  estimatedRoom,
+  bookingEndTime,
 }: {
   form: BookingForm
   selectedBranchName?: string
   selectedMenuItems: MenuItem[]
   menuTotal: number
+  estimatedRoom?: Room
+  bookingEndTime: ReturnType<typeof getBookingEndTime>
 }) {
   return (
     <div className="rounded-[2rem] border border-gold/20 bg-[#10131b]/90 p-5 shadow-[0_30px_90px_rgb(0_0_0/0.35)] backdrop-blur-xl sm:p-6">
@@ -1100,10 +1189,24 @@ function BookingSummary({
           }
         />
         <SummaryRow
+          icon={<Clock3 className="size-4" />}
+          label="Thời lượng"
+          value={`${form.durationHours} giờ · kết thúc ${formatBookingTime(bookingEndTime)}`}
+        />
+        <SummaryRow
           icon={<Users className="size-4" />}
           label="Số khách"
           value={form.guestCount > 0 ? `${form.guestCount} khách` : "Chưa nhập"}
         />
+        {estimatedRoom && (
+          <div className="rounded-2xl border border-gold/20 bg-gold/5 p-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-gold/80">Giá phòng ước tính</p>
+            <p className="mt-2 text-sm font-semibold text-foreground">{estimatedRoom.name}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{formatCurrency(estimatedRoom.hourlyRate)} / giờ × {form.durationHours} giờ</p>
+            <p className="mt-2 font-heading text-2xl font-bold text-gold">{formatCurrency(estimatedRoom.hourlyRate * form.durationHours)}</p>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">Chỉ là tạm tính tiền phòng; chưa gồm đồ ăn, dịch vụ hoặc phụ phí.</p>
+          </div>
+        )}
         {selectedMenuItems.length > 0 && (
           <SummaryRow
             icon={<Utensils className="size-4" />}

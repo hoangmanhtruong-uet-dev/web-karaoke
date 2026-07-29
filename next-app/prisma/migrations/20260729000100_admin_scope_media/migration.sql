@@ -1,0 +1,7 @@
+ALTER TABLE "AdminUser" ADD COLUMN "assignedBranchId" TEXT;
+CREATE INDEX "AdminUser_assignedBranchId_idx" ON "AdminUser"("assignedBranchId");
+ALTER TABLE "AdminUser" ADD CONSTRAINT "AdminUser_assignedBranchId_fkey" FOREIGN KEY ("assignedBranchId") REFERENCES "Branch"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+CREATE TABLE "MediaAsset" ("id" TEXT NOT NULL,"storageKey" VARCHAR(500) NOT NULL,"filename" VARCHAR(255) NOT NULL,"mimeType" VARCHAR(100) NOT NULL,"sizeBytes" INTEGER NOT NULL,"width" INTEGER,"height" INTEGER,"branchId" TEXT,"roomId" TEXT,"menuItemId" TEXT,"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,"updatedAt" TIMESTAMP(3) NOT NULL,CONSTRAINT "MediaAsset_pkey" PRIMARY KEY ("id"),CONSTRAINT "MediaAsset_storageKey_key" UNIQUE ("storageKey"),CONSTRAINT "MediaAsset_branchId_fkey" FOREIGN KEY ("branchId") REFERENCES "Branch"("id") ON DELETE CASCADE ON UPDATE CASCADE,CONSTRAINT "MediaAsset_roomId_fkey" FOREIGN KEY ("roomId") REFERENCES "Room"("id") ON DELETE CASCADE ON UPDATE CASCADE,CONSTRAINT "MediaAsset_menuItemId_fkey" FOREIGN KEY ("menuItemId") REFERENCES "MenuItem"("id") ON DELETE CASCADE ON UPDATE CASCADE);
+CREATE INDEX "MediaAsset_branchId_idx" ON "MediaAsset"("branchId");
+CREATE INDEX "MediaAsset_roomId_idx" ON "MediaAsset"("roomId");
+CREATE INDEX "MediaAsset_menuItemId_idx" ON "MediaAsset"("menuItemId");

@@ -1,0 +1,4 @@
+import { CalendarView } from "@/components/admin/calendar-view"
+import { requirePermissionPage } from "@/lib/admin-auth"
+import prisma from "@/lib/prisma"
+export default async function AdminCalendarPage(){const admin=await requirePermissionPage("booking.read");const [branches,rooms]=await Promise.all([prisma.branch.findMany({where:{status:"active",...(admin.role==="staff"?{id:admin.assignedBranchId??"__unassigned_staff__"}:{})},select:{id:true,name:true},orderBy:{name:"asc"}}),prisma.room.findMany({where:admin.role==="staff"?{branchId:admin.assignedBranchId??"__unassigned_staff__"}:{},select:{id:true,name:true,branch:{select:{name:true}}},orderBy:{name:"asc"}})]);return <CalendarView branches={branches} rooms={rooms}/>}

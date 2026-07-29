@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import AppShell from "@/components/layout/AppShell";
-
+import { siteConfig } from "@/config/site";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
@@ -15,9 +15,9 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Royal Karaoke - Không gian giải trí đẳng cấp",
+  title: `${siteConfig.brandName} - Không gian giải trí đẳng cấp`,
   description:
-    "Royal Karaoke mang đến không gian giải trí đẳng cấp với phòng hát sang trọng, âm thanh hiện đại và dịch vụ tận tâm cho mọi cuộc vui.",
+    siteConfig.description,
 };
 
 export default function RootLayout({

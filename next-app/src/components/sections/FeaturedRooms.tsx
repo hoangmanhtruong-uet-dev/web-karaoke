@@ -3,6 +3,8 @@
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { Check, ChevronRight } from "lucide-react"
+
+import SafeImage from "@/components/ui/SafeImage"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { rooms } from "@/data/rooms"
@@ -65,7 +67,7 @@ export default function FeaturedRooms() {
                 >
                   <div className="relative h-56 overflow-hidden">
                     <div className={`absolute inset-0 bg-gradient-to-br ${tier.gradient}`} />
-                    <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1598997435713-5f21e3c64f32?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-45 mix-blend-soft-light transition-transform duration-700 hover:scale-105" />
+<SafeImage src={room.imageUrl} alt={`Ảnh ${room.name}`} fallbackKind="room" fill sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" className="object-cover opacity-45 mix-blend-soft-light transition-transform duration-700 hover:scale-105" />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#07080c] via-[#07080c]/30 to-transparent" />
                     <div className="absolute left-5 top-5 rounded-full border border-gold/20 bg-black/35 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.24em] text-gold-soft backdrop-blur-md">
                       {tier.label}

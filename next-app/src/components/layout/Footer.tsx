@@ -54,7 +54,7 @@ export default function Footer() {
                   <MapPin size={16} className="mt-1 shrink-0 text-gold" />
                   <div>
                     <p className="text-sm font-medium text-foreground">
-                      {branch.name.replace("VivaStar Karaoke - ", "")}
+                      {branch.name.split(" - ").slice(1).join(" - ")}
                     </p>
                     <p className="mt-1 text-xs leading-5 text-muted-foreground">
                       {branch.district}, {branch.city}

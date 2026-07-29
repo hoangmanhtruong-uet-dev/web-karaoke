@@ -1,0 +1,1 @@
+﻿export default function Loading() { return <main className="flex min-h-screen items-center justify-center bg-[#07080c]" aria-busy="true"><p className="text-muted-foreground">Đang tải nội dung…</p></main> }

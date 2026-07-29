@@ -1,0 +1,3 @@
+import { describe,expect,it } from "vitest"
+import { parseCalendarRange } from "@/lib/calendar-query"
+describe("calendar date range",()=>{it("rejects invalid and long ranges",()=>{expect(()=>parseCalendarRange(null,"2026-01-02")).toThrow();expect(()=>parseCalendarRange("2026-01-03","2026-01-02")).toThrow();expect(()=>parseCalendarRange("2026-01-01","2026-02-02")).toThrow(/31/)});it("accepts bounded range",()=>expect(parseCalendarRange("2026-01-01","2026-01-08").end.getTime()).toBeGreaterThan(0))})

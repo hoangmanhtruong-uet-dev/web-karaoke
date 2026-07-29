@@ -60,7 +60,7 @@ export default function PromotionsPage() {
               className="mb-6 border-gold/30 bg-[#10131b]/70 text-gold shadow-lg shadow-gold/10 backdrop-blur"
             >
               <Sparkles className="mr-2 size-3.5 fill-gold text-gold" />
-              Đặc quyền VivaStar
+              Đặc quyền Royal Karaoke
             </Badge>
 
             <h1 className="font-heading text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-7xl">
@@ -198,7 +198,7 @@ export default function PromotionsPage() {
                 </h2>
                 <p className="mt-4 text-sm leading-7 text-muted-foreground">
                   Một vài lưu ý nhỏ giúp bạn sử dụng ưu đãi thuận tiện hơn khi
-                  đặt phòng tại VivaStar.
+                  đặt phòng tại Royal Karaoke.
                 </p>
               </div>
 
@@ -237,7 +237,7 @@ export default function PromotionsPage() {
                 Sẵn sàng tận hưởng ưu đãi hôm nay?
               </h2>
               <p className="mt-5 text-base leading-8 text-muted-foreground sm:text-lg">
-                Đặt phòng trước để đội ngũ VivaStar tư vấn gói ưu đãi phù hợp
+                Đặt phòng trước để đội ngũ Royal Karaoke tư vấn gói ưu đãi phù hợp
                 nhất với số lượng khách, thời gian và phong cách buổi tiệc.
               </p>
               <Button asChild className="luxury-button mt-8 h-14 rounded-full px-8">

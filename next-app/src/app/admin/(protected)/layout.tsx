@@ -14,10 +14,12 @@ import {
 
 import { requireAdminPage } from "@/lib/admin-auth"
 import { signOut } from "@/auth"
+import { siteConfig } from "@/config/site"
 
 const links = [
   { label: "Tổng quan", href: "/admin", icon: LayoutDashboard },
   { label: "Booking", href: "/admin/bookings", icon: CalendarCheck2 },
+  { label: "Lịch", href: "/admin/calendar", icon: CalendarCheck2 },
   { label: "Khách hàng", href: "/admin/customers", icon: UsersRound },
   { label: "Dịch vụ", href: "/admin/services", icon: Sparkles },
   { label: "Thanh toán", href: "/admin/payments", icon: CreditCard },
@@ -28,12 +30,14 @@ const links = [
 export default async function ProtectedAdminLayout({ children }: { children: React.ReactNode }) {
   const admin = await requireAdminPage()
   if (admin.mustChangePassword) redirect("/admin/change-password")
+  if (admin.role === "admin" && !admin.twoFactorEnabled)
+    redirect("/admin/2fa/setup")
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgb(214_180_106/0.12),transparent_28rem),#07080c] p-3 text-foreground sm:p-5">
       <div className="mx-auto grid min-h-[calc(100vh-2.5rem)] max-w-[1500px] gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
         <aside className="h-fit overflow-hidden rounded-[1.75rem] border border-gold/15 bg-[#0d1017]/95 shadow-2xl lg:sticky lg:top-5 lg:flex lg:min-h-[calc(100vh-2.5rem)] lg:flex-col">
           <div className="border-b border-white/10 p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-gold">Royal Karaoke</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-gold">{siteConfig.brandName}</p>
             <h1 className="mt-2 font-heading text-xl font-bold">Operations Console</h1>
             <div className="mt-4 flex items-center gap-2 text-xs text-emerald-200">
               <span className="size-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgb(52_211_153)]" />
@@ -46,7 +50,8 @@ export default async function ProtectedAdminLayout({ children }: { children: Rea
                 <Icon className="size-4" />{label}
               </Link>
             ))}
-            {admin.role === "admin" && <Link href="/admin/staff" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition hover:bg-gold/10 hover:text-gold"><ShieldCheck className="size-4" />Nhân viên</Link>}
+            {(admin.role === "admin" || admin.role === "manager") && <Link href="/admin/media" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition hover:bg-gold/10 hover:text-gold"><Sparkles className="size-4" />Media</Link>}{admin.role === "admin" && <Link href="/admin/staff" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition hover:bg-gold/10 hover:text-gold"><ShieldCheck className="size-4" />Nhân viên</Link>}
+            {admin.role === "admin" && <Link href="/admin/2fa" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition hover:bg-gold/10 hover:text-gold"><ShieldCheck className="size-4" />Bảo mật 2FA</Link>}
           </nav>
           <div className="mt-auto border-t border-white/10 p-4">
             <p className="font-semibold">{admin.name}</p>

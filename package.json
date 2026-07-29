@@ -1,8 +1,19 @@
 {
-  "dependencies": {
-    "clsx": "^2.1.1",
-    "framer-motion": "^12.42.2",
-    "lucide-react": "^1.23.0",
-    "tailwind-merge": "^3.6.0"
-  }
+    "name":  "web-karaoke-workspace",
+    "private":  true,
+    "scripts":  {
+                    "dev":  "npm --prefix next-app run dev",
+                    "start":  "npm --prefix next-app run start",
+                    "lint":  "npm --prefix next-app run lint",
+                    "typecheck":  "npm --prefix next-app run typecheck",
+                    "test":  "npm --prefix next-app run test",
+                    "test:integration":  "npm --prefix next-app run test:integration",
+                    "build":  "npm --prefix next-app run build"
+                },
+    "dependencies":  {
+                         "clsx":  "^2.1.1",
+                         "framer-motion":  "^12.42.2",
+                         "lucide-react":  "^1.23.0",
+                         "tailwind-merge":  "^3.6.0"
+                     }
 }

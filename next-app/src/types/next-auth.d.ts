@@ -4,6 +4,8 @@ declare module "next-auth" {
   interface User {
     role: "user" | "staff" | "manager" | "admin"
     sessionVersion: number
+    twoFactorVerified: boolean
+    requiresTwoFactorSetup: boolean
   }
 
   interface Session {
@@ -11,6 +13,8 @@ declare module "next-auth" {
       id: string
       role: "user" | "staff" | "manager" | "admin"
       sessionVersion: number
+      twoFactorVerified: boolean
+      requiresTwoFactorSetup: boolean
     }
   }
 }
@@ -20,6 +24,8 @@ declare module "next-auth/jwt" {
     id?: string
     role?: "user" | "staff" | "manager" | "admin"
     sessionVersion?: number
+    twoFactorVerified?: boolean
+    requiresTwoFactorSetup?: boolean
     absoluteExpiresAt?: number
     lastActivityAt?: number
   }

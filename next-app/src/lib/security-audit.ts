@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client"
 
 import prisma from "@/lib/prisma"
+import { logger } from "@/lib/logger"
 import { requestContext } from "@/lib/request-context"
 
 type AuditInput = {
@@ -36,14 +37,12 @@ export async function writeSecurityAudit(input: AuditInput) {
 
 export async function emitSecurityAlert(input: AuditInput & { reason: string }) {
   const context = requestContext(input.request)
-  console.warn(JSON.stringify({
-    level: "warning",
-    type: "security_event",
+  logger.security("security_event", {
     action: input.action,
     reason: input.reason,
     entityType: input.entityType,
     entityId: input.entityId,
     requestId: context.requestId,
-  }))
+  })
   await writeSecurityAudit({ ...input, result: input.result ?? "blocked" })
 }

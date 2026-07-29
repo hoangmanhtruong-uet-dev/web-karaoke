@@ -4,6 +4,7 @@ import { AlertTriangle, CalendarClock, CheckCircle2, DoorOpen, UsersRound, Walle
 import { requirePermissionPage } from "@/lib/admin-auth"
 import { getAdminDashboard } from "@/lib/admin-queries"
 import { formatCurrency } from "@/lib/utils"
+import { BOOKING_STATUS_META } from "@/lib/booking-status"
 
 export default async function AdminDashboardPage() {
   const admin = await requirePermissionPage("dashboard.read")
@@ -40,14 +41,8 @@ export default async function AdminDashboardPage() {
         <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-5">
           <div className="flex items-center justify-between"><h3 className="text-lg font-semibold">Trạng thái booking</h3><span className="text-xs text-muted-foreground">Toàn thời gian</span></div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              ["Chờ xác nhận", data.byStatus.pending ?? 0],
-              ["Đã xác nhận", data.byStatus.confirmed ?? 0],
-              ["Đang sử dụng", data.byStatus.checkedIn ?? 0],
-              ["Hoàn tất", data.byStatus.completed ?? 0],
-              ["Đã huỷ", data.byStatus.cancelled ?? 0],
-              ["Hết hạn / từ chối", (data.byStatus.expired ?? 0) + (data.byStatus.rejected ?? 0)],
-            ].map(([label, value]) => <div key={label} className="rounded-xl bg-black/25 p-4"><p className="text-xs">{label}</p><p className="mt-1 text-xl font-bold text-foreground">{value}</p></div>)}
+            {
+            Object.entries(BOOKING_STATUS_META).map(([status, meta]) => [meta.label, data.byStatus[status] ?? 0]).map(([label, value]) => <div key={label} className="rounded-xl bg-black/25 p-4"><p className="text-xs">{label}</p><p className="mt-1 text-xl font-bold text-foreground">{value}</p></div>)}
           </div>
         </section>
 

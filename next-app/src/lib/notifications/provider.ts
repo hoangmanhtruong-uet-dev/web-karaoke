@@ -1,3 +1,5 @@
+import { logger } from "@/lib/logger"
+
 export type NotificationMessage = {
   idempotencyKey: string
   channel: "email" | "internal"
@@ -18,7 +20,7 @@ export interface NotificationProvider {
 class ConsoleNotificationProvider implements NotificationProvider {
   async send(message: NotificationMessage) {
     if (process.env.NODE_ENV === "production") throw new Error("Console notification provider is disabled in production")
-    console.info("Development notification", { template: message.template, recipient: message.recipientMasked, idempotencyKey: message.idempotencyKey })
+    logger.info("development_notification", { template: message.template, recipientMasked: message.recipientMasked, idempotencyKey: message.idempotencyKey })
     return { providerMessageId: `dev-${message.idempotencyKey}` }
   }
 }

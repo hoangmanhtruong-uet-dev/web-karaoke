@@ -20,6 +20,7 @@ import {
 } from "lucide-react"
 
 import SectionHeading from "@/components/sections/SectionHeading"
+import { siteConfig } from "@/config/site"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -47,7 +48,7 @@ type ContactApiResponse = ApiResponse<{
   message: string
 }>
 
-const HOTLINE = "1900 1234 56"
+const HOTLINE = siteConfig.hotline
 
 const initialForm: ContactForm = {
   fullName: "",
@@ -65,28 +66,17 @@ const textareaClassName =
 const fieldLabelClassName = "text-sm font-medium text-foreground"
 const errorClassName = "mt-1.5 text-xs leading-5 text-rose-200"
 
+function friendlyContactError(code?: string, status?: number) {
+  if (code === "VALIDATION_ERROR") return "Thong tin chua hop le. Ban kiem tra cac truong duoc danh dau roi thu lai."
+  if (code === "RATE_LIMITED") return "Ban da gui qua nhieu yeu cau. Vui long cho mot luc roi thu lai."
+  if (status === 503 || code === "DEPENDENCY_UNAVAILABLE") return "He thong dang tam thoi ban. Ban thu lai sau it phut hoac goi hotline."
+  return "Khong the gui lien he luc nay. Vui long thu lai."
+}
+
 const contactBlocks = [
-  {
-    title: "Zalo",
-    description: "Chat nhanh với tư vấn viên để kiểm tra phòng trống và combo.",
-    action: "Mở Zalo",
-    href: "https://zalo.me/1900123456",
-    icon: MessageCircle,
-  },
-  {
-    title: "Messenger",
-    description: "Gửi tin nhắn Facebook để nhận phản hồi và hình ảnh phòng.",
-    action: "Nhắn Messenger",
-    href: "https://m.me/royalkaraoke",
-    icon: MessageSquare,
-  },
-  {
-    title: "Google Maps",
-    description: "Xem đường đi đến chi nhánh Royal Karaoke thuận tiện nhất.",
-    action: "Xem bản đồ",
-    href: "https://www.google.com/maps/search/Royal+Karaoke",
-    icon: Map,
-  },
+  ...(siteConfig.zaloUrl ? [{ title: "Zalo", description: "Chat nhanh với tư vấn viên để kiểm tra phòng trống và combo.", action: "Mở Zalo", href: siteConfig.zaloUrl, icon: MessageCircle }] : []),
+  ...(siteConfig.messengerUrl ? [{ title: "Messenger", description: "Gửi tin nhắn Facebook để nhận phản hồi và hình ảnh phòng.", action: "Nhắn Messenger", href: siteConfig.messengerUrl, icon: MessageSquare }] : []),
+  { title: "Google Maps", description: `Xem đường đi đến chi nhánh ${siteConfig.brandName} thuận tiện nhất.`, action: "Xem bản đồ", href: `https://www.google.com/maps/search/${encodeURIComponent(siteConfig.brandName)}`, icon: Map },
 ]
 
 const faqs = [
@@ -190,7 +180,7 @@ export default function ContactPage() {
 
       if (!response.ok || !result.success) {
         const apiError = result.success ? undefined : result.error
-        setSubmitError(apiError?.message ?? "Không thể gửi liên hệ lúc này.")
+        setSubmitError(apiError?.message ?? friendlyContactError(apiError?.code, response.status))
 
         if (apiError?.fieldErrors) {
           setErrors({
@@ -349,7 +339,7 @@ export default function ContactPage() {
         </div>
       </section>
 
-      <section id="contact-form" className="relative py-16 lg:py-24">
+      <section id="contact-form-section" className="relative py-16 lg:py-24">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_35%,rgb(214_180_106/0.08),transparent_28%)]" />
         <div className="container-custom relative z-10">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
@@ -396,6 +386,7 @@ export default function ContactPage() {
             </motion.aside>
 
             <motion.form
+              id="contact-form"
               onSubmit={handleSubmit}
               initial={{ opacity: 0, x: 24 }}
               whileInView={{ opacity: 1, x: 0 }}

@@ -4,6 +4,8 @@ import { useState } from "react"
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { ChevronRight } from "lucide-react"
+
+import SafeImage from "@/components/ui/SafeImage"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -67,7 +69,7 @@ export default function MenuPreview() {
                 <Card className="glass-panel overflow-hidden rounded-2xl">
                   <div className="relative h-44 overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-br from-[#191815] via-[#0a0c12] to-[#151923]" />
-                    <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1598997435713-5f21e3c64f32?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-45 transition-transform duration-700 hover:scale-105" />
+<SafeImage src={item.imageUrl} alt={`Ảnh ${item.name}`} fallbackKind="menu" fill sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" className="object-cover opacity-45 transition-transform duration-700 hover:scale-105" />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#07080c] via-[#07080c]/45 to-transparent" />
                   </div>
                   <CardHeader className="px-6 pt-6">

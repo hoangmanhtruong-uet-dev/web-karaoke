@@ -3,6 +3,8 @@
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { Clock, MapPin, Phone } from "lucide-react"
+
+import SafeImage from "@/components/ui/SafeImage"
 import { Button } from "@/components/ui/button"
 import { branches } from "@/data/branches"
 
@@ -36,12 +38,12 @@ export default function BranchPreview() {
             >
                <div className="relative h-48 overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-[#0f1015] via-[#13141b] to-[#0a0c12]" />
-                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1598997435713-5f21e3c64f32?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-35 transition-transform duration-700 hover:scale-105" />
+<SafeImage src={branch.imageUrl} alt={`Ảnh chi nhánh ${branch.name}`} fallbackKind="branch" fill sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw" className="object-cover opacity-35 transition-transform duration-700 hover:scale-105" />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#07080c] via-[#07080c]/40 to-transparent" />
               </div>
                <div className="px-6 pb-6">
                 <h3 className="font-heading text-xl font-bold text-foreground">
-                  {branch.name.replace("VivaStar Karaoke - ", "")}
+                  {branch.name.split(" - ").slice(1).join(" - ")}
                 </h3>
 
                 <div className="mt-5 space-y-3 text-sm">

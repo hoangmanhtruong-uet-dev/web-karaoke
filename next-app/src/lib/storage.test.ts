@@ -1,0 +1,3 @@
+import { describe,expect,it } from "vitest"
+import { createStorageKey,validateImage } from "@/lib/storage"
+describe("secure media validation",()=>{it("checks signature and extension",()=>{expect(validateImage(new Uint8Array([255,216,255,0]),"image/jpeg","x.jpg")).toBe("image/jpeg");expect(()=>validateImage(new Uint8Array([255,216,255]),"image/png","x.png")).toThrow()});it("limits size and randomizes key",()=>{expect(()=>validateImage(new Uint8Array(5*1024*1024+1),"image/jpeg","x.jpg")).toThrow();expect(createStorageKey("room","1","image/png")).not.toBe(createStorageKey("room","1","image/png"))})})

@@ -18,6 +18,8 @@ function validEnvironment(): NodeJS.ProcessEnv {
     DATABASE_SSL_ALLOW_UNVERIFIED: "false",
     AUTH_SECRET: "a".repeat(40),
     SECURITY_EVENT_HASH_SECRET: "b".repeat(40),
+    RECOVERY_CODE_HASH_SECRET: "r".repeat(40),
+    TOTP_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"),
     CRON_SECRET: "c".repeat(40),
     AUTH_URL: "https://karaoke.example.com",
     PRODUCTION_CANONICAL_ORIGIN: "https://karaoke.example.com",
@@ -57,7 +59,7 @@ describe("production environment verification", () => {
 
     expect(result.valid).toBe(false)
     expect(
-      result.checks.find((check) => check.name === "DATABASE_SSL_CA_BASE64")
+      result.checks.find((check) => check.name === "DATABASE_SSL_CA")
         ?.status
     ).toBe("FAIL")
     expect(

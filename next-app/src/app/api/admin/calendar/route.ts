@@ -1,0 +1,4 @@
+import { authorizeAdminApi, hasPrincipal } from "@/lib/admin-api"
+import { apiError, apiSuccess } from "@/lib/api-response"
+import { listCalendarBookings } from "@/lib/calendar-query"
+export async function GET(request:Request){const auth=await authorizeAdminApi("booking.read");if(!hasPrincipal(auth))return auth.response;const u=new URL(request.url);try{return apiSuccess(await listCalendarBookings({from:u.searchParams.get("from"),to:u.searchParams.get("to"),branchId:u.searchParams.get("branchId")||undefined,roomId:u.searchParams.get("roomId")||undefined},auth.principal))}catch(e){return apiError(422,"INVALID_DATE_RANGE",e instanceof Error?e.message:"Invalid date range")}}

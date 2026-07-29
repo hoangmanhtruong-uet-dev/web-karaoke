@@ -9,7 +9,7 @@ export async function GET(
   const auth = await authorizeAdminApi("booking.read");
   if (!hasPrincipal(auth)) return auth.response;
   const { id } = await params;
-  const booking = await getAdminBooking(id);
+  const booking = await getAdminBooking(id, auth.principal);
   if (!booking)
     return apiError(404, "BOOKING_NOT_FOUND", "Không tìm thấy booking.");
   return apiSuccess({ booking, audit: await getBookingAudit(id) });

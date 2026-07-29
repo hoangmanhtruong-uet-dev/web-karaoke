@@ -3,11 +3,10 @@ import { createHash } from "node:crypto"
 import { z } from "zod"
 
 import { canonicalizeVietnamPhone, isValidVietnamPhone } from "@/lib/utils"
+import { MAX_DURATION_HOURS, MIN_DURATION_HOURS } from "@/lib/booking-duration"
+export { DEFAULT_DURATION_HOURS, MAX_DURATION_HOURS, MIN_DURATION_HOURS } from "@/lib/booking-duration"
 
 export const VIETNAM_TIME_ZONE = "Asia/Ho_Chi_Minh"
-export const DEFAULT_DURATION_HOURS = 3
-export const MIN_DURATION_HOURS = 1
-export const MAX_DURATION_HOURS = 12
 export const MIN_GUESTS = 1
 export const MAX_GUESTS = 40
 

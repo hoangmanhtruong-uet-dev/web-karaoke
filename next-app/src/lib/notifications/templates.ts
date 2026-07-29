@@ -1,6 +1,7 @@
 import type { Booking, Branch, OutboxEventType, Room } from "@prisma/client"
 
 import type { NotificationMessage } from "@/lib/notifications/provider"
+import { getBookingStatusMeta } from "@/lib/booking-status"
 
 type BookingView = Pick<Booking, "code" | "customerEmail" | "customerPhone" | "guestCount" | "startAt" | "endAt" | "status"> & {
   branch: Pick<Branch, "name" | "phone">
@@ -35,7 +36,8 @@ export function bookingNotification(eventType: OutboxEventType, booking: Booking
   const formatter = new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", dateStyle: "full", timeStyle: "short" })
   const time = booking.startAt ? formatter.format(booking.startAt) : "Chưa xác định"
   const room = booking.room ? `${booking.room.name} (${booking.room.tier})` : "Nhân viên sẽ tư vấn"
-  const lines = [title, `Mã booking: ${booking.code}`, `Chi nhánh: ${booking.branch.name}`, `Phòng: ${room}`, `Thời gian: ${time}`, `Số khách: ${booking.guestCount}`, `Trạng thái: ${booking.status}`, `Liên hệ: ${booking.branch.phone}`]
+  const status = getBookingStatusMeta(booking.status)
+  const lines = [title, `Mã booking: ${booking.code}`, `Chi nhánh: ${booking.branch.name}`, `Phòng: ${room}`, `Thời gian: ${time}`, `Số khách: ${booking.guestCount}`, `Trạng thái: ${status.label}`, `Liên hệ: ${booking.branch.phone}`]
   const text = lines.join("\n")
   return {
     idempotencyKey: `${booking.code}:${eventType}:${channel}`,

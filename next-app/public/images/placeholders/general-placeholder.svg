@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" role="img" aria-labelledby="title desc">
+  <title id="title">Ảnh minh họa</title>
+  <desc id="desc">Placeholder ảnh minh họa nội bộ</desc>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#07080c"/><stop offset="1" stop-color="#25202c"/></linearGradient></defs>
+  <rect width="1200" height="720" fill="url(#bg)"/>
+  <path d="M0 540 300 300l180 140 180-200 540 350v130H0z" fill="#d6b46a" opacity=".14"/>
+  <circle cx="600" cy="280" r="74" fill="#d6b46a" opacity=".22"/>
+</svg>

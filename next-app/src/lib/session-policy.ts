@@ -8,6 +8,8 @@ export type SessionSecurityToken = {
   id?: string
   role?: SessionRole
   sessionVersion?: number
+  twoFactorVerified?: boolean
+  requiresTwoFactorSetup?: boolean
   absoluteExpiresAt?: number
   lastActivityAt?: number
 }
@@ -16,6 +18,8 @@ export type SessionSecurityUser = {
   id: string
   role: SessionRole
   sessionVersion: number
+  twoFactorVerified?: boolean
+  requiresTwoFactorSetup?: boolean
 }
 
 export function advanceSessionToken<T extends SessionSecurityToken>(
@@ -27,6 +31,8 @@ export function advanceSessionToken<T extends SessionSecurityToken>(
     token.id = user.id
     token.role = user.role
     token.sessionVersion = user.sessionVersion
+    token.twoFactorVerified = user.twoFactorVerified ?? user.role !== "admin"
+    token.requiresTwoFactorSetup = user.requiresTwoFactorSetup ?? false
     token.absoluteExpiresAt = now + ABSOLUTE_SESSION_MS
     token.lastActivityAt = now
     return token
@@ -42,6 +48,8 @@ export function advanceSessionToken<T extends SessionSecurityToken>(
     delete token.id
     delete token.role
     delete token.sessionVersion
+    delete token.twoFactorVerified
+    delete token.requiresTwoFactorSetup
     return token
   }
 
