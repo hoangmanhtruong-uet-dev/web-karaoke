@@ -38,7 +38,9 @@ function postgresConnectionOptions() {
 
   url.searchParams.delete("sslmode")
   const ca = loadDatabaseCertificateAuthority()
-  if (process.env.NODE_ENV === "production" && !ca)
+  const isProductionBuild =
+    process.env.NEXT_PHASE === "phase-production-build"
+  if (process.env.NODE_ENV === "production" && !isProductionBuild && !ca)
     throw new Error("Production database TLS requires a CA certificate")
   const allowUnverified =
     process.env.NODE_ENV !== "production" &&

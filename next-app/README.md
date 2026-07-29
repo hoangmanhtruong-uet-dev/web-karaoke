@@ -212,6 +212,18 @@ PostgreSQL integration tests must never target production. Set an isolated
 The project does not provision PostgreSQL; create the isolated database and role
 using your local PostgreSQL installation or an approved remote PostgreSQL service.
 
+### Safe integration tests
+
+Integration tests are intentionally excluded from `npm test`. Create a dedicated PostgreSQL database whose name ends with `_test`, then either export `TEST_DATABASE_URL` or put it in the ignored file `.env.test.local`:
+
+```dotenv
+TEST_DATABASE_URL=postgresql://test_user:test_password@localhost:5432/web_karaoke_test
+PRODUCTION_DATABASE_HOSTS=production-db.example.com
+ALLOW_REMOTE_TEST_DATABASE=false
+```
+
+Run `npm run test:integration`. The cross-platform runner forces `NODE_ENV=test`, compares the target with `DATABASE_URL`, rejects configured production hosts and all Aiven/Render hosts, applies checked-in migrations with `prisma migrate deploy`, then runs fixtures that clean only their own records. It fails with setup instructions when `TEST_DATABASE_URL` is absent and never falls back to `DATABASE_URL`.
+
 ## Design System
 
 ### Color Palette

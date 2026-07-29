@@ -15,7 +15,7 @@
     "job:expire-bookings": "tsx scripts/run-job.ts expire-bookings",
     "job:process-outbox": "tsx scripts/run-job.ts process-outbox",
     "job:create-reminders": "tsx scripts/run-job.ts create-reminders",
-    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:integration": "tsx scripts/run-integration-tests.ts",
     "verify:production-env": "tsx scripts/verify-production-env.ts",
     "load:local:sample": "node tests/load/local-sample.mjs",
     "format": "prettier --write \"**/*.{ts,tsx}\"",

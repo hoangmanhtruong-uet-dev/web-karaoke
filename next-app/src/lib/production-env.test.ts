@@ -23,6 +23,8 @@ function validEnvironment(): NodeJS.ProcessEnv {
     CRON_SECRET: "c".repeat(40),
     AUTH_URL: "https://karaoke.example.com",
     PRODUCTION_CANONICAL_ORIGIN: "https://karaoke.example.com",
+    NEXT_PUBLIC_SITE_URL: "https://karaoke.example.com",
+    NEXT_PUBLIC_HOTLINE: "0901234567",
     AUTH_TRUST_HOST: "true",
     TRUSTED_PROXY_MODE: "vercel",
     PRODUCTION_EXPECTED_PROXY_MODE: "vercel",

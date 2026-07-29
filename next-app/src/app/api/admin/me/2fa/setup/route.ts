@@ -10,6 +10,7 @@ import {
   rateLimitResponse,
 } from "@/lib/rate-limit"
 import { requestContext } from "@/lib/request-context"
+import { requireSameOrigin } from "@/lib/request-security"
 import { writeSecurityAudit } from "@/lib/security-audit"
 import {
   createTotpEnrollment,
@@ -32,6 +33,8 @@ const bodySchema = z.discriminatedUnion("action", [
 ])
 
 export async function POST(request: Request) {
+  const origin = requireSameOrigin(request)
+  if (origin) return origin
   const context = requestContext(request)
   const session = await auth()
   if (!session?.user.id || session.user.role !== "admin")

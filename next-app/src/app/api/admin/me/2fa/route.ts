@@ -6,6 +6,7 @@ import { apiError, apiSuccess } from "@/lib/api-response"
 import prisma from "@/lib/prisma"
 import { consumeRateLimit, rateLimitResponse } from "@/lib/rate-limit"
 import { requestContext } from "@/lib/request-context"
+import { requireSameOrigin } from "@/lib/request-security"
 import { writeSecurityAudit } from "@/lib/security-audit"
 import {
   hashRecoveryCode,
@@ -19,6 +20,8 @@ const disableSchema = z.object({
 })
 
 export async function DELETE(request: Request) {
+  const origin = requireSameOrigin(request)
+  if (origin) return origin
   const context = requestContext(request)
   const session = await auth()
   if (!session?.user.id || session.user.role !== "admin")

@@ -2,7 +2,10 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { defineConfig } from "vitest/config"
 
+import { assertSafeTestDatabase } from "./scripts/test-database-guard"
+
 const root = path.dirname(fileURLToPath(import.meta.url))
+process.env.DATABASE_URL = assertSafeTestDatabase(process.env, root)
 
 export default defineConfig({
   resolve: { alias: { "@": path.resolve(root, "src") } },

@@ -166,6 +166,38 @@ export function verifyProductionEnvironment(
     "supported mode must match PRODUCTION_EXPECTED_PROXY_MODE"
   )
 
+  let publicSiteUrlValid = false
+  try {
+    const publicSiteUrl = new URL(env.NEXT_PUBLIC_SITE_URL ?? "")
+    const canonicalOrigin = new URL(env.PRODUCTION_CANONICAL_ORIGIN ?? "")
+    publicSiteUrlValid =
+      publicSiteUrl.protocol === "https:" &&
+      publicSiteUrl.origin === canonicalOrigin.origin &&
+      publicSiteUrl.pathname === "/" &&
+      !publicSiteUrl.search &&
+      !publicSiteUrl.hash
+  } catch {
+    publicSiteUrlValid = false
+  }
+  add(
+    "NEXT_PUBLIC_SITE_URL",
+    publicSiteUrlValid,
+    "canonical HTTPS public URL configured; value redacted",
+    "must be the canonical HTTPS origin"
+  )
+
+  const hotline = env.NEXT_PUBLIC_HOTLINE?.trim() ?? ""
+  const hotlineDigits = hotline.replace(/\D/g, "")
+  const hotlineValid =
+    /^\d{9,11}$/.test(hotlineDigits) &&
+    !/^(?:0+|1900+)$/.test(hotlineDigits) &&
+    hotlineDigits !== "19000000"
+  add(
+    "NEXT_PUBLIC_HOTLINE",
+    hotlineValid,
+    "plausible public hotline configured; value redacted",
+    hotline ? "configured but looks like a placeholder" : "not configured"
+  )
   const provider = env.EMAIL_PROVIDER?.trim()
   checks.push({
     name: "NOTIFICATION_PROVIDER",
