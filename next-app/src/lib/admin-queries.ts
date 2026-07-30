@@ -1,6 +1,11 @@
 import { Prisma, BookingStatus, ContactStatus, RoomTier } from "@prisma/client"
 import { z } from "zod"
 
+import type { AdminPrincipal } from "@/lib/admin-auth"
+import {
+  getBookingBranchScope,
+  resolveAdminBranchId,
+} from "@/lib/admin-branch-scope"
 import prisma from "@/lib/prisma"
 
 const bookingQuerySchema = z.object({
@@ -25,21 +30,20 @@ export function maskPhone(phone: string) {
   return digits.length >= 4 ? "*** *** " + digits.slice(-4) : "***"
 }
 
-export async function listAdminBookings(input: BookingAdminQuery, principal?: { role: string; assignedBranchId?: string | null }) {
+export async function listAdminBookings(input: BookingAdminQuery, principal: AdminPrincipal) {
   const query = bookingQuerySchema.parse(input)
   if (query.from && query.to && query.from > query.to) throw new Error("from must be before to")
   if (query.from && query.to && query.to.getTime() - query.from.getTime() > 31 * 86400000) throw new Error("date range is limited to 31 days")
-  const scope = principal?.role === "staff" ? { branchId: principal.assignedBranchId ?? "__unassigned_staff__" } : {}
+  const scope = getBookingBranchScope(principal, query.branchId)
   const now = new Date()
   const where: Prisma.BookingWhereInput = {
-    ...scope,
     ...(query.search ? { OR: [{ code: { contains: query.search, mode: "insensitive" } }, { customerName: { contains: query.search, mode: "insensitive" } }, { customerPhone: { contains: query.search } }, { customerEmail: { contains: query.search, mode: "insensitive" } }] } : {}),
     ...(query.status ? { status: query.status } : {}),
-    ...(query.branchId ? { branchId: query.branchId } : {}),
     ...(query.roomId ? { roomId: query.roomId } : {}),
     ...(query.tier ? { room: { tier: query.tier } } : {}),
     ...(query.from || query.to ? { startAt: { ...(query.from ? { gte: query.from } : {}), ...(query.to ? { lt: new Date(query.to.getTime() + 86400000) } : {}) } } : {}),
     ...(query.expiringSoon === "true" ? { status: "pending", expiresAt: { gt: now, lte: new Date(now.getTime() + 5 * 60_000) } } : {}),
+    ...scope,
   }
   const [total, bookings] = await prisma.$transaction([
     prisma.booking.count({ where }),
@@ -47,9 +51,9 @@ export async function listAdminBookings(input: BookingAdminQuery, principal?: { 
   ])
   return { items: bookings.map((booking) => ({ ...booking, customerPhone: maskPhone(booking.customerPhone) })), total, page: query.page, pageSize: query.pageSize, pageCount: Math.ceil(total / query.pageSize) }
 }
-export async function getAdminBooking(id: string, principal?: { role: string; assignedBranchId?: string | null }) {
-  return prisma.booking.findUnique({
-    where: { id, ...(principal?.role === "staff" ? { branchId: principal.assignedBranchId ?? "__unassigned_staff__" } : {}) },
+export async function getAdminBooking(id: string, principal: AdminPrincipal) {
+  return prisma.booking.findFirst({
+    where: { id, ...getBookingBranchScope(principal) },
     include: {
       branch: true, room: true, menuItems: { include: { menuItem: true } },
       adminNotes: { include: { author: { select: { name: true, role: true } } }, orderBy: { createdAt: "desc" } },
@@ -58,25 +62,33 @@ export async function getAdminBooking(id: string, principal?: { role: string; as
   })
 }
 
-export async function getBookingAudit(id: string) {
-  return prisma.auditLog.findMany({ where: { entityType: "booking", entityId: id }, orderBy: { createdAt: "desc" }, include: { actor: { select: { name: true } } } })
+export async function getBookingAudit(id: string, principal: AdminPrincipal) {
+  const booking = await prisma.booking.findFirst({ where: { id, ...getBookingBranchScope(principal) }, select: { id: true } })
+  if (!booking) return []
+  return prisma.auditLog.findMany({ where: { entityType: "booking", entityId: booking.id }, orderBy: { createdAt: "desc" }, include: { actor: { select: { name: true } } } })
 }
 
-export async function getAdminDashboard(now = new Date()) {
+export async function getAdminDashboard(
+  principal: AdminPrincipal,
+  now = new Date()
+) {
+  const branchId = resolveAdminBranchId(principal)
+  const bookingScope = branchId ? { branchId } : {}
+  const isStaff = principal.role === "staff"
   const vietnamNow = new Date(now.getTime() + 7 * 60 * 60_000)
   const startUtc = new Date(Date.UTC(vietnamNow.getUTCFullYear(), vietnamNow.getUTCMonth(), vietnamNow.getUTCDate()) - 7 * 60 * 60_000)
   const endUtc = new Date(startUtc.getTime() + 24 * 60 * 60_000)
   const [today, grouped, contacts, upcoming, nearExpiry, deadLetters, customers, availableRooms, activeBranches, paid] = await Promise.all([
-    prisma.booking.count({ where: { startAt: { gte: startUtc, lt: endUtc } } }),
-    prisma.booking.groupBy({ by: ["status"], _count: { _all: true } }),
-    prisma.contactRequest.count({ where: { status: { in: ["new", "inProgress"] } } }),
-    prisma.booking.count({ where: { status: { in: ["confirmed", "pending"] }, startAt: { gt: now, lte: new Date(now.getTime() + 24 * 60 * 60_000) } } }),
-    prisma.booking.count({ where: { status: "pending", expiresAt: { gt: now, lte: new Date(now.getTime() + 5 * 60_000) } } }),
-    prisma.outboxEvent.count({ where: { status: "deadLetter" } }),
-    prisma.customer.count({ where: { status: "active" } }),
-    prisma.room.count({ where: { status: "available" } }),
-    prisma.branch.count({ where: { status: "active" } }),
-    prisma.payment.aggregate({ where: { status: "completed" }, _sum: { amount: true } }),
+    prisma.booking.count({ where: { startAt: { gte: startUtc, lt: endUtc }, ...bookingScope } }),
+    prisma.booking.groupBy({ by: ["status"], where: bookingScope, _count: { _all: true } }),
+    isStaff ? Promise.resolve(null) : prisma.contactRequest.count({ where: { status: { in: ["new", "inProgress"] } } }),
+    prisma.booking.count({ where: { status: { in: ["confirmed", "pending"] }, startAt: { gt: now, lte: new Date(now.getTime() + 24 * 60 * 60_000) }, ...bookingScope } }),
+    prisma.booking.count({ where: { status: "pending", expiresAt: { gt: now, lte: new Date(now.getTime() + 5 * 60_000) }, ...bookingScope } }),
+    isStaff ? Promise.resolve(null) : prisma.outboxEvent.count({ where: { status: "deadLetter" } }),
+    prisma.customer.count({ where: { status: "active", ...(branchId ? { bookings: { some: { branchId } } } : {}) } }),
+    prisma.room.count({ where: { status: "available", ...(branchId ? { branchId } : {}) } }),
+    prisma.branch.count({ where: { status: "active", ...(branchId ? { id: branchId } : {}) } }),
+    prisma.payment.aggregate({ where: { status: "completed", ...(branchId ? { booking: { branchId } } : {}) }, _sum: { amount: true } }),
   ])
   return {
     today,

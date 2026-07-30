@@ -8,7 +8,7 @@ import { BOOKING_STATUS_META } from "@/lib/booking-status"
 
 export default async function AdminDashboardPage() {
   const admin = await requirePermissionPage("dashboard.read")
-  const data = await getAdminDashboard()
+  const data = await getAdminDashboard(admin)
   const cards = [
     { label: "Booking hôm nay", value: data.today, icon: CalendarClock, tone: "text-sky-200 bg-sky-400/10" },
     { label: "Sắp diễn ra (24h)", value: data.upcoming, icon: CheckCircle2, tone: "text-emerald-200 bg-emerald-400/10" },
@@ -54,11 +54,11 @@ export default async function AdminDashboardPage() {
         </section>
       </div>
 
-      {(data.nearExpiry > 0 || data.contacts > 0 || data.deadLetters > 0) && (
+      {(data.nearExpiry > 0 || (data.contacts ?? 0) > 0 || (data.deadLetters ?? 0) > 0) && (
         <section className="mt-5 rounded-2xl border border-amber-300/20 bg-amber-400/[0.06] p-5">
           <div className="flex items-center gap-2 text-amber-200"><AlertTriangle className="size-5" /><h3 className="font-semibold">Cần chú ý</h3></div>
           <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
-            <p>{data.nearExpiry} booking gần hết giữ chỗ</p><p>{data.contacts} liên hệ chưa xử lý</p><p>{data.deadLetters} thông báo gửi lỗi</p>
+            <p>{data.nearExpiry} booking gần hết giữ chỗ</p>{data.contacts !== null && <p>{data.contacts} liên hệ chưa xử lý</p>}{data.deadLetters !== null && <p>{data.deadLetters} thông báo gửi lỗi</p>}
           </div>
         </section>
       )}

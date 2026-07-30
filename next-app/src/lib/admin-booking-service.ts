@@ -1,6 +1,7 @@
 import { Prisma, type BookingStatus, type OutboxEventType } from "@prisma/client"
 
 import type { AdminPrincipal } from "@/lib/admin-auth"
+import { getBookingBranchScope } from "@/lib/admin-branch-scope"
 import { canTransitionBooking, getBookingTransitionTimestamp } from "@/lib/booking-state-machine"
 import { OCCUPYING_BOOKING_STATUSES, roomHasCapacity } from "@/lib/booking-domain"
 import { enqueueOutbox } from "@/lib/outbox"
@@ -20,7 +21,11 @@ const transitionEvents: Partial<Record<BookingStatus, OutboxEventType>> = {
   expired: "bookingExpired",
 }
 
-type Actor = Pick<AdminPrincipal, "id" | "role"> | { id: null; role: "system" }
+type Actor = Pick<AdminPrincipal, "id" | "role" | "assignedBranchId"> | { id: null; role: "system" }
+
+function getActorBookingScope(actor: Actor) {
+  return actor.role === "system" ? {} : getBookingBranchScope(actor)
+}
 
 export async function transitionBooking(
   bookingId: string,
@@ -28,9 +33,10 @@ export async function transitionBooking(
   actor: Actor,
   now = new Date()
 ) {
+  const scope = getActorBookingScope(actor)
   return prisma.$transaction(async (tx) => {
-    const booking = await tx.booking.findUnique({
-      where: { id: bookingId },
+    const booking = await tx.booking.findFirst({
+      where: { id: bookingId, ...scope },
       select: { id: true, status: true, expiresAt: true },
     })
     if (!booking) throw new AdminBookingError(404, "BOOKING_NOT_FOUND", "Không tìm thấy booking.")
@@ -44,6 +50,7 @@ export async function transitionBooking(
     const updated = await tx.booking.updateMany({
       where: {
         id: booking.id,
+        ...scope,
         status: booking.status,
         ...(targetStatus === "confirmed" ? { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] } : {}),
       },
@@ -84,17 +91,18 @@ export async function reassignBookingRoom(input: {
   allowTierChange: boolean
   actor: AdminPrincipal
 }) {
+  const scope = getBookingBranchScope(input.actor)
   try {
     return await prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`reassign:${input.bookingId}`}, 0))`
-      const booking = await tx.booking.findUnique({
-        where: { id: input.bookingId },
+      const booking = await tx.booking.findFirst({
+        where: { id: input.bookingId, ...scope },
         select: { id: true, roomId: true, branchId: true, guestCount: true, startAt: true, endAt: true, status: true, room: { select: { tier: true } } },
       })
       if (!booking) throw new AdminBookingError(404, "BOOKING_NOT_FOUND", "Không tìm thấy booking.")
       if (!booking.startAt || !booking.endAt) throw new AdminBookingError(422, "INVALID_BOOKING_TIME", "Booking chưa có khoảng thời gian hợp lệ.")
 
-      const room = await tx.room.findUnique({ where: { id: input.roomId }, select: { id: true, branchId: true, tier: true, status: true, capacity: true } })
+      const room = await tx.room.findFirst({ where: { id: input.roomId, branchId: booking.branchId }, select: { id: true, branchId: true, tier: true, status: true, capacity: true } })
       if (!room || room.status !== "available" || room.branchId !== booking.branchId) {
         throw new AdminBookingError(422, "ROOM_NOT_AVAILABLE", "Phòng không khả dụng hoặc không cùng chi nhánh.")
       }
@@ -116,7 +124,8 @@ export async function reassignBookingRoom(input: {
 
       if (booking.roomId === room.id) return { id: booking.id, roomId: room.id }
 
-      await tx.booking.update({ where: { id: booking.id }, data: { roomId: room.id } })
+      const updated = await tx.booking.updateMany({ where: { id: booking.id, ...scope }, data: { roomId: room.id } })
+      if (updated.count !== 1) throw new AdminBookingError(404, "BOOKING_NOT_FOUND", "Không tìm thấy booking.")
       const audit = await tx.auditLog.create({
         data: { actorId: input.actor.id, actorRole: input.actor.role, action: "booking.roomReassigned", entityType: "booking", entityId: booking.id, oldValue: { roomId: booking.roomId }, newValue: { roomId: room.id, tier: room.tier } },
       })
@@ -137,7 +146,12 @@ export async function addAdminNote(input: { bookingId?: string; contactRequestId
   const entityType = input.bookingId ? "booking" : "contactRequest"
   const entityId = input.bookingId ?? input.contactRequestId
   if (!entityId) throw new AdminBookingError(422, "INVALID_NOTE_ENTITY", "Ghi chú phải thuộc một đối tượng.")
+  const bookingScope = input.bookingId ? getBookingBranchScope(input.actor) : {}
   return prisma.$transaction(async (tx) => {
+    if (input.bookingId) {
+      const booking = await tx.booking.findFirst({ where: { id: input.bookingId, ...bookingScope }, select: { id: true } })
+      if (!booking) throw new AdminBookingError(404, "BOOKING_NOT_FOUND", "Không tìm thấy booking.")
+    }
     const note = await tx.adminNote.create({ data: { authorId: input.actor.id, bookingId: input.bookingId, contactRequestId: input.contactRequestId, content: input.content } })
     await tx.auditLog.create({ data: { actorId: input.actor.id, actorRole: input.actor.role, action: `${entityType}.noteAdded`, entityType, entityId, newValue: { noteId: note.id } } })
     return note

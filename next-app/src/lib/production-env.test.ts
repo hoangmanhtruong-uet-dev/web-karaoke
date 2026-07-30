@@ -82,4 +82,14 @@ describe("production environment verification", () => {
     expect(output).not.toContain(env.BOOTSTRAP_ADMIN_PASSWORD)
     expect(output).toContain("BOOTSTRAP_ADMIN_PASSWORD")
   })
+  it("rejects a local public URL and placeholder hotline", () => {
+    const env = validEnvironment()
+    env.NEXT_PUBLIC_SITE_URL = "http://localhost:3000"
+    env.NEXT_PUBLIC_HOTLINE = "1900 0000"
+    const result = verifyProductionEnvironment(env)
+
+    expect(result.valid).toBe(false)
+    expect(result.checks.find((check) => check.name === "NEXT_PUBLIC_SITE_URL")?.status).toBe("FAIL")
+    expect(result.checks.find((check) => check.name === "NEXT_PUBLIC_HOTLINE")?.status).toBe("FAIL")
+  })
 })

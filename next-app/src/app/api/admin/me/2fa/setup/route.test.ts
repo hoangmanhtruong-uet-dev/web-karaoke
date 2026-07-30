@@ -48,7 +48,7 @@ import { POST } from "@/app/api/admin/me/2fa/setup/route"
 function request(body: unknown) {
   return new Request("http://localhost/api/admin/me/2fa/setup", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", Origin: "http://localhost" },
     body: JSON.stringify(body),
   })
 }

@@ -183,28 +183,32 @@ export async function createBooking(
             )
           }
 
-const pricingRules = await tx.pricingRule.findMany({
-            where: { branchId: input.branchId, isActive: true },
-            select: {
-              id: true,
-              name: true,
-              branchId: true,
-              roomId: true,
-              roomTier: true,
-              ruleType: true,
-              specificDate: true,
-              dayOfWeek: true,
-              startMinute: true,
-              endMinute: true,
-              hourlyRate: true,
-              priority: true,
-              validFrom: true,
-              validTo: true,
-              isActive: true,
-            },
-          })
-          const roomPrice = calculateRoomPrice(
-            selectedRoom,
+const pricingRuleClient = (tx as {
+            pricingRule?: typeof tx.pricingRule
+          }).pricingRule
+          const pricingRules = pricingRuleClient
+            ? await pricingRuleClient.findMany({
+                where: { branchId: input.branchId, isActive: true },
+                select: {
+                  id: true,
+                  name: true,
+                  branchId: true,
+                  roomId: true,
+                  roomTier: true,
+                  ruleType: true,
+                  specificDate: true,
+                  dayOfWeek: true,
+                  startMinute: true,
+                  endMinute: true,
+                  hourlyRate: true,
+                  priority: true,
+                  validFrom: true,
+                  validTo: true,
+                  isActive: true,
+                },
+              })
+            : []
+          const roomPrice = calculateRoomPrice(            selectedRoom,
             window.startAt,
             window.endAt,
             pricingRules.map((rule) => ({

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { authorizeAdminApi, hasPrincipal } from "@/lib/admin-api";
 import { addAdminNote } from "@/lib/admin-booking-service";
+import { adminServiceError } from "@/lib/admin-error-response";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { readJsonBodyResult, requireSameOrigin } from "@/lib/request-security";
 const schema = z.object({ content: z.string().trim().min(1).max(1000) });
@@ -23,12 +24,16 @@ export async function POST(
       parsed.error.flatten().fieldErrors,
     );
   const { id } = await params;
-  return apiSuccess(
-    await addAdminNote({
-      bookingId: id,
-      content: parsed.data.content,
-      actor: auth.principal,
-    }),
-    201,
-  );
+  try {
+    return apiSuccess(
+      await addAdminNote({
+        bookingId: id,
+        content: parsed.data.content,
+        actor: auth.principal,
+      }),
+      201,
+    );
+  } catch (error) {
+    return adminServiceError(error);
+  }
 }
