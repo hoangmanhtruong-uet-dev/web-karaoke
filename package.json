@@ -8,7 +8,17 @@
     "typecheck": "npm --prefix next-app run typecheck",
     "test": "npm --prefix next-app run test",
     "test:integration": "npm --prefix next-app run test:integration",
-    "build": "npm --prefix next-app run build"
+    "build": "npm --prefix next-app run build",
+    "test:db:up": "npm --prefix next-app run test:db:up",
+    "test:db:wait": "npm --prefix next-app run test:db:wait",
+    "test:db:migrate": "npm --prefix next-app run test:db:migrate",
+    "test:db:reset": "npm --prefix next-app run test:db:reset",
+    "test:db:down": "npm --prefix next-app run test:db:down",
+    "test:integration:local": "npm --prefix next-app run test:integration:local",
+    "test:integration:ci": "npm --prefix next-app run test:integration:ci",
+    "test:db:guard": "npm --prefix next-app run test:db:guard",
+    "test:db:reset:ci": "npm --prefix next-app run test:db:reset:ci",
+    "test:db:metadata": "npm --prefix next-app run test:db:metadata"
   },
   "dependencies": {
     "clsx": "^2.1.1",

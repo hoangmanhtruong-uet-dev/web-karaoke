@@ -1,6 +1,15 @@
 import { randomUUID } from "node:crypto"
 
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest"
 
 import type { PrismaClient } from "@prisma/client"
 import type { AdminPrincipal } from "@/lib/admin-auth"
@@ -288,11 +297,17 @@ beforeAll(async () => {
   transitionBooking = transitionRoute.POST
   reassignRoom = reassignRoute.POST
   addNote = notesRoute.POST
+})
+
+beforeEach(async () => {
   fixture = await createFixture()
 })
 
-afterAll(async () => {
+afterEach(async () => {
   await cleanupFixture(fixture)
+})
+
+afterAll(async () => {
   await prisma?.$disconnect()
 })
 

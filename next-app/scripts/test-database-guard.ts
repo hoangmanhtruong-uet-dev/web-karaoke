@@ -1,22 +1,7 @@
-import { existsSync, readFileSync } from "node:fs"
-import { resolve } from "node:path"
-
 type Environment = NodeJS.ProcessEnv
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"])
 const FORBIDDEN_MANAGED_HOST = /(?:^|\.)(?:aivencloud\.com|render\.com)$/i
-
-function readEnvFileValue(path: string, key: string) {
-  if (!existsSync(path)) return undefined
-
-  for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
-    const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*?)\s*$/)
-    if (match?.[1] !== key) continue
-    return (match[2] ?? "").replace(/^['"]|['"]$/g, "").trim()
-  }
-
-  return undefined
-}
 
 function parsePostgresUrl(value: string, label: string) {
   let parsed: URL
@@ -25,7 +10,6 @@ function parsePostgresUrl(value: string, label: string) {
   } catch {
     throw new Error(`${label} must be a valid PostgreSQL URL.`)
   }
-
   if (!new Set(["postgres:", "postgresql:"]).has(parsed.protocol)) {
     throw new Error(`${label} must use the PostgreSQL protocol.`)
   }
@@ -33,35 +17,53 @@ function parsePostgresUrl(value: string, label: string) {
 }
 
 function databaseName(url: URL) {
-  return decodeURIComponent(url.pathname.replace(/^\//, "")).split("/")[0]
+  let name: string
+  try {
+    name = decodeURIComponent(url.pathname.replace(/^\//, ""))
+  } catch {
+    throw new Error("TEST_DATABASE_URL database name is malformed.")
+  }
+  if (!name || name.includes("/")) {
+    throw new Error(
+      "TEST_DATABASE_URL must include one non-empty database name."
+    )
+  }
+  return name
+}
+
+function normalizedHostname(url: URL) {
+  const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "")
+  return LOCAL_HOSTS.has(hostname) ? "loopback" : hostname
 }
 
 function databaseTarget(url: URL) {
-  return `${url.hostname.toLowerCase()}:${url.port || "5432"}/${databaseName(url).toLowerCase()}`
+  return `${normalizedHostname(url)}:${url.port || "5432"}/${databaseName(url).toLowerCase()}`
 }
 
-function configuredProductionHosts(env: Environment, cwd: string) {
-  const raw =
-    env.PRODUCTION_DATABASE_HOSTS ??
-    readEnvFileValue(resolve(cwd, ".env"), "PRODUCTION_DATABASE_HOSTS") ??
-    ""
-
-  return raw
+function configuredProductionTargets(env: Environment) {
+  return (env.PRODUCTION_DATABASE_HOSTS ?? "")
     .split(",")
-    .map((host) => host.trim().toLowerCase())
+    .map((target) => target.trim().toLowerCase())
     .filter(Boolean)
 }
 
-function matchesConfiguredHost(hostname: string, configuredHost: string) {
-  return (
-    hostname === configuredHost || hostname.endsWith(`.${configuredHost}`)
+function matchesConfiguredTarget(url: URL, configuredTarget: string) {
+  const [configuredHost, configuredPort] = configuredTarget.split(":")
+  const hostname = normalizedHostname(url)
+  const port = url.port || "5432"
+  return Boolean(
+    configuredHost &&
+    (hostname === configuredHost || hostname.endsWith(`.${configuredHost}`)) &&
+    (!configuredPort || configuredPort === port)
   )
 }
 
-export function assertSafeTestDatabase(
-  env: Environment = process.env,
-  cwd = process.cwd()
-) {
+export function assertSafeTestDatabase(env: Environment = process.env) {
+  if (env.NODE_ENV === "production") {
+    throw new Error(
+      "Integration database operations are forbidden when NODE_ENV=production."
+    )
+  }
   if (env.NODE_ENV !== "test") {
     throw new Error(
       'Integration tests require NODE_ENV="test". Use `npm run test:integration`.'
@@ -77,7 +79,7 @@ export function assertSafeTestDatabase(
 
   const testUrl = parsePostgresUrl(value, "TEST_DATABASE_URL")
   const name = databaseName(testUrl)
-  const hostname = testUrl.hostname.toLowerCase()
+  const hostname = normalizedHostname(testUrl)
 
   if (!name.toLowerCase().endsWith("_test")) {
     throw new Error("TEST_DATABASE_URL database name must end with _test.")
@@ -92,21 +94,16 @@ export function assertSafeTestDatabase(
     )
   }
 
-  for (const productionHost of configuredProductionHosts(env, cwd)) {
-    if (matchesConfiguredHost(hostname, productionHost)) {
+  for (const productionTarget of configuredProductionTargets(env)) {
+    if (matchesConfiguredTarget(testUrl, productionTarget)) {
       throw new Error(
-        `TEST_DATABASE_URL hostname matches configured production host ${productionHost}.`
+        "TEST_DATABASE_URL matches a configured production host/port."
       )
     }
   }
 
-  const configuredDatabaseUrls = [
-    env.DATABASE_URL,
-    readEnvFileValue(resolve(cwd, ".env"), "DATABASE_URL"),
-  ].filter((candidate): candidate is string => Boolean(candidate?.trim()))
-
-  for (const configuredUrl of configuredDatabaseUrls) {
-    const productionUrl = parsePostgresUrl(configuredUrl, "DATABASE_URL")
+  if (env.DATABASE_URL?.trim()) {
+    const productionUrl = parsePostgresUrl(env.DATABASE_URL, "DATABASE_URL")
     if (databaseTarget(productionUrl) === databaseTarget(testUrl)) {
       throw new Error(
         "TEST_DATABASE_URL must not target the same host, port and database as DATABASE_URL."
@@ -114,11 +111,14 @@ export function assertSafeTestDatabase(
     }
   }
 
-  if (!LOCAL_HOSTS.has(hostname) && env.ALLOW_REMOTE_TEST_DATABASE !== "true") {
+  if (hostname !== "loopback") {
     throw new Error(
-      "Remote TEST_DATABASE_URL targets require ALLOW_REMOTE_TEST_DATABASE=true after the isolated target is reviewed."
+      "TEST_DATABASE_URL must target localhost, 127.0.0.1 or ::1. Remote test databases are not accepted."
     )
   }
 
+  console.info(
+    `[test-database-guard] target host=${hostname} port=${testUrl.port || "5432"} database=${name}`
+  )
   return value
 }

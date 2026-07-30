@@ -75,3 +75,49 @@ npm run build
 ```
 
 Checklist và kết quả xác minh gần nhất nằm trong [`PRODUCTION_CHECKLIST.md`](./PRODUCTION_CHECKLIST.md).
+
+## CI-first integration testing
+
+Docker is not required for normal local development. GitHub Actions owns the authoritative PostgreSQL integration run through the `PostgreSQL integration (two clean runs)` job and a PostgreSQL 16 service named `web_karaoke_ci_test`.
+
+Run these checks locally before pushing:
+
+```powershell
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
+
+`npm run test:integration` runs migrations and the full integration suite only when an explicit guarded `TEST_DATABASE_URL` is already available. `npm run test:integration:local` first checks that this loopback PostgreSQL database is reachable and otherwise stops with a clear message. It never starts Docker or falls back to a remote database.
+
+Docker Compose remains optional for developers who want an isolated local PostgreSQL instance:
+
+```powershell
+Copy-Item next-app/.env.test.local.example next-app/.env.test.local
+npm run test:db:up
+npm run test:integration:local
+npm run test:db:down
+```
+
+If Docker is not installed, skip those four commands and rely on the GitHub Actions integration job. The database guard still requires `NODE_ENV=test`, PostgreSQL, a database ending in `_test`, and a loopback host; it rejects production mode, Aiven/Render/other remote hosts, configured production host/port targets, and a target equal to `DATABASE_URL`. Logs never include credentials.
+
+### Branch protection guidance
+
+Repository administrators should configure a ruleset for `main` that:
+
+- requires a pull request before merge;
+- blocks direct pushes and force pushes to `main`;
+- requires the `Lint, typecheck, unit tests, and build` check;
+- requires the `PostgreSQL integration (two clean runs)` check;
+- requires branches to be up to date before merge.
+
+These are instructions only; this task does not change GitHub repository settings. The metadata step intentionally fails if DB-001 is present, after both integration runs have completed, so release remains blocked until DB-001 is fixed in its separately authorized task.
+
+To publish a branch and inspect CI:
+
+```powershell
+git push -u origin <branch-name>
+```
+
+Open the repository's **Actions** tab and select **Next app security baseline**, or use `gh run watch` when GitHub CLI is installed. The actual migration result, both integration totals, the nine branch-scope results, and the DB-001 metadata result are only authoritative after the branch is pushed and GitHub Actions finishes.

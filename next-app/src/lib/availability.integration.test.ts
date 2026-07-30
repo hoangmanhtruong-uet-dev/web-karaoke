@@ -1,14 +1,6 @@
 import { randomUUID } from "node:crypto"
 import { afterAll, describe, expect, it } from "vitest"
 
-const testUrl = process.env.TEST_DATABASE_URL
-if (!testUrl) throw new Error("TEST_DATABASE_URL is required for PostgreSQL integration tests")
-const parsed = new URL(testUrl)
-if (!/(^|[-_])(test|ci)([-_]|$)/i.test(parsed.pathname) || process.env.DATABASE_URL === testUrl) {
-  throw new Error("Availability integration tests require an isolated test database")
-}
-process.env.DATABASE_URL = testUrl
-
 const { default: prisma } = await import("@/lib/prisma")
 const { getAvailability } = await import("@/lib/availability-service")
 

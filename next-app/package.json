@@ -19,7 +19,17 @@
     "verify:production-env": "tsx scripts/verify-production-env.ts",
     "load:local:sample": "node tests/load/local-sample.mjs",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:db:up": "tsx scripts/test-database.ts up",
+    "test:db:wait": "tsx scripts/test-database.ts wait",
+    "test:db:migrate": "tsx scripts/test-database.ts migrate",
+    "test:db:reset": "tsx scripts/test-database.ts reset",
+    "test:db:down": "tsx scripts/test-database.ts down",
+    "test:integration:local": "tsx scripts/run-local-integration-tests.ts",
+    "test:integration:ci": "tsx scripts/run-integration-tests.ts --suite-only",
+    "test:db:guard": "tsx scripts/check-test-database.ts",
+    "test:db:reset:ci": "tsx scripts/reset-ci-test-database.ts",
+    "test:db:metadata": "tsx scripts/verify-test-database-metadata.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.0",

@@ -206,24 +206,50 @@ host. A serverless scheduler can instead `POST` to `/api/internal/jobs/expire-bo
 `/api/internal/jobs/create-reminders`, and `/api/internal/jobs/process-outbox` with
 `Authorization: Bearer <CRON_SECRET>`. Job invocations are bounded and safe to overlap.
 
-PostgreSQL integration tests must never target production. Set an isolated
-`TEST_DATABASE_URL`, migrate that database separately, and then run
-`npm run test:integration`. The suite deliberately skips when the variable is absent.
-The project does not provision PostgreSQL; create the isolated database and role
-using your local PostgreSQL installation or an approved remote PostgreSQL service.
+PostgreSQL integration tests must never target production. The runner requires an
+explicit local `TEST_DATABASE_URL` and fails before Prisma when it is absent. Use the
+dedicated Docker Compose service below; remote database targets are rejected.
 
-### Safe integration tests
+### CI-first integration tests
 
-Integration tests are intentionally excluded from `npm test`. Create a dedicated PostgreSQL database whose name ends with `_test`, then either export `TEST_DATABASE_URL` or put it in the ignored file `.env.test.local`:
+Docker is optional. The authoritative integration run happens in GitHub Actions on PostgreSQL 16 with the isolated database `web_karaoke_ci_test`. The CI job guards the target, validates and generates Prisma, deploys all checked-in migrations, runs all four integration files, resets the same guarded CI database, reapplies migrations, and runs the suite a second time.
 
-```dotenv
-TEST_DATABASE_URL=postgresql://test_user:test_password@localhost:5432/web_karaoke_test
-PRODUCTION_DATABASE_HOSTS=production-db.example.com
-ALLOW_REMOTE_TEST_DATABASE=false
+The CI suite includes the nine tests in `src/test/admin-branch-scope.integration.test.ts`, booking concurrency and exclusion, idempotency, availability, jobs/outbox, critical business scenarios, and migration verification. CI uses the verbose Vitest reporter so the branch-scope results are visible separately in the job log.
+
+Local lint, typecheck, unit tests, and builds never invoke Docker:
+
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm run build
 ```
 
-Run `npm run test:integration`. The cross-platform runner forces `NODE_ENV=test`, compares the target with `DATABASE_URL`, rejects configured production hosts and all Aiven/Render hosts, applies checked-in migrations with `prisma migrate deploy`, then runs fixtures that clean only their own records. It fails with setup instructions when `TEST_DATABASE_URL` is absent and never falls back to `DATABASE_URL`.
+When a developer already has a local PostgreSQL test database, copy the example, adjust only the loopback credentials/port, and run:
 
+```bash
+cp .env.test.local.example .env.test.local
+npm run test:integration:local
+```
+
+The local command checks reachability first and stops clearly when PostgreSQL is unavailable. It never starts Docker and never falls back to a remote target. `npm run test:integration` is the lower-level command for any already-running guarded test database. `npm run test:integration:ci` is suite-only and is reserved for CI after guard, validation, generation, and migration steps have succeeded.
+
+Optional Docker Compose commands remain available for developers who want them:
+
+```bash
+npm run test:db:up
+npm run test:db:wait
+npm run test:db:reset
+npm run test:db:down
+```
+
+The guard requires `NODE_ENV=test`, an explicit PostgreSQL `TEST_DATABASE_URL`, a database ending in `_test`, and localhost/127.0.0.1/IPv6 loopback. It rejects production mode, Aiven, Render, every other remote host, configured production host/port targets, and any target equal to `DATABASE_URL`. Integration Prisma commands do not load `.env`, and logs contain only normalized host, port, and database name.
+
+The final CI metadata step checks the booking exclusion constraint, key Booking foreign keys, the availability index, and both PricingRule foreign keys. Missing PricingRule foreign keys are reported as DB-001 and fail the integration job after both suites run; this task does not modify the pricing migration.
+
+### Branch protection
+
+Configure a GitHub ruleset for `main` to require pull requests, block direct/force pushes, and require both workflow checks named `Lint, typecheck, unit tests, and build` and `PostgreSQL integration (two clean runs)`. Require the branch to be up to date before merging. Developers do not need Docker because the required integration check runs in GitHub Actions. This documentation does not claim those repository settings were changed.
 ## Design System
 
 ### Color Palette

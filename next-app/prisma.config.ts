@@ -5,19 +5,25 @@ import { defineConfig } from "prisma/config"
 
 import { assertSafeTestDatabase } from "./scripts/test-database-guard"
 
-const envPath = resolve(process.cwd(), ".env")
-if (existsSync(envPath)) {
-  for (const line of readFileSync(envPath, "utf8").split(/\r?\n/)) {
-    const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/)
-    if (!match || match[1].startsWith("#") || process.env[match[1]]) continue
+const testDatabaseUrl = process.env.TEST_DATABASE_URL?.trim()
 
-    process.env[match[1]] = (match[2] ?? "").replace(/^['"]|['"]$/g, "").trim()
+// Integration commands supply TEST_DATABASE_URL explicitly and never load .env.
+// Non-test Prisma commands retain the existing development/production behavior.
+if (!testDatabaseUrl) {
+  const envPath = resolve(process.cwd(), ".env")
+  if (existsSync(envPath)) {
+    for (const line of readFileSync(envPath, "utf8").split(/\r?\n/)) {
+      const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/)
+      if (!match || match[1].startsWith("#") || process.env[match[1]]) continue
+      process.env[match[1]] = (match[2] ?? "")
+        .replace(/^['"]|['"]$/g, "")
+        .trim()
+    }
   }
 }
 
-const testDatabaseUrl = process.env.TEST_DATABASE_URL?.trim()
 const datasourceUrl = testDatabaseUrl
-  ? assertSafeTestDatabase(process.env, process.cwd())
+  ? assertSafeTestDatabase(process.env)
   : process.env.DATABASE_URL
 
 if (!datasourceUrl) {
@@ -26,9 +32,7 @@ if (!datasourceUrl) {
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
-  datasource: {
-    url: datasourceUrl,
-  },
+  datasource: { url: datasourceUrl },
   migrations: {
     path: "prisma/migrations",
     seed: "tsx prisma/seed.ts",

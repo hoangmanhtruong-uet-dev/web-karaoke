@@ -1,21 +1,10 @@
-import { existsSync, readFileSync } from "node:fs"
-import { resolve } from "node:path"
 import { spawnSync } from "node:child_process"
 
 import { assertSafeTestDatabase } from "./test-database-guard"
-
-function loadTestEnvironment() {
-  const path = resolve(process.cwd(), ".env.test.local")
-  if (!existsSync(path)) return
-
-  for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
-    const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*?)\s*$/)
-    if (!match || process.env[match[1]] !== undefined) continue
-    process.env[match[1]] = (match[2] ?? "")
-      .replace(/^['"]|['"]$/g, "")
-      .trim()
-  }
-}
+import {
+  enterTestEnvironment,
+  loadLocalTestEnvironment,
+} from "./test-database-environment"
 
 function runNpmExec(args: string[]) {
   const npm = process.platform === "win32" ? "npm.cmd" : "npm"
@@ -25,19 +14,32 @@ function runNpmExec(args: string[]) {
     stdio: "inherit",
     shell: false,
   })
-
   if (result.error) throw result.error
   if (result.status !== 0) process.exit(result.status ?? 1)
 }
 
-loadTestEnvironment()
-Object.assign(process.env, { NODE_ENV: "test" })
+loadLocalTestEnvironment()
+enterTestEnvironment()
 assertSafeTestDatabase()
 
-console.info("[integration] Safety guard passed; applying checked-in migrations.")
-runNpmExec(["prisma", "migrate", "deploy"])
+const suiteOnly = process.argv.includes("--suite-only")
 
-console.info(
-  "[integration] Running isolated tests; each suite seeds minimal fixtures and cleans only records it owns."
-)
-runNpmExec(["vitest", "run", "--config", "vitest.integration.config.ts"])
+if (!suiteOnly) {
+  console.info("[integration] Validating the Prisma schema.")
+  runNpmExec(["prisma", "validate"])
+  console.info("[integration] Generating the Prisma client.")
+  runNpmExec(["prisma", "generate"])
+  console.info(
+    "[integration] Applying checked-in migrations from the baseline."
+  )
+  runNpmExec(["prisma", "migrate", "deploy"])
+}
+
+console.info("[integration] Running isolated tests with fixture-owned cleanup.")
+runNpmExec([
+  "vitest",
+  "run",
+  "--config",
+  "vitest.integration.config.ts",
+  ...(process.env.CI ? ["--reporter=verbose"] : []),
+])

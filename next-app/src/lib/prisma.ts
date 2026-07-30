@@ -21,7 +21,10 @@ function integerSetting(name: string, fallback: number, maximum: number) {
 }
 
 function postgresConnectionOptions() {
-  const configuredUrl = process.env.DATABASE_URL
+  const configuredUrl =
+    process.env.NODE_ENV === "test" && process.env.TEST_DATABASE_URL
+      ? process.env.TEST_DATABASE_URL
+      : process.env.DATABASE_URL
   if (!configuredUrl) return { connectionString: configuredUrl }
 
   const url = new URL(configuredUrl)
