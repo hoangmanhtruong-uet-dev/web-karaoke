@@ -2,6 +2,10 @@ import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 
 import { authenticateAdmin } from "@/lib/auth-service"
+import {
+  adminTwoFactorSetupPath,
+  decideAdminAccess,
+} from "@/lib/admin-access-policy"
 import { advanceSessionToken } from "@/lib/session-policy"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -60,17 +64,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const pathname = request.nextUrl.pathname
       if (pathname === "/admin/login" || pathname.startsWith("/api/auth"))
         return true
-      const isTwoFactorSetupRoute =
-        pathname === "/admin/2fa/setup" ||
-        pathname.startsWith("/api/admin/me/2fa")
-      const hasAdminSession =
-        session?.user.role === "staff" ||
-        session?.user.role === "manager" ||
-        (session?.user.role === "admin" &&
-          (session.user.twoFactorVerified || isTwoFactorSetupRoute))
+
+      const decision = decideAdminAccess(session?.user, pathname)
+      if (decision === "redirect-to-setup") {
+        return Response.redirect(
+          new URL(adminTwoFactorSetupPath, request.nextUrl)
+        )
+      }
+
       if (pathname.startsWith("/api/admin")) {
         return (
-          hasAdminSession ||
+          decision === "allow" ||
           Response.json(
             {
               success: false,
@@ -83,7 +87,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           )
         )
       }
-      if (pathname.startsWith("/admin")) return hasAdminSession
+      if (pathname.startsWith("/admin")) return decision === "allow"
       return true
     },
   },
