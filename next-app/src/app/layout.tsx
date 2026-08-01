@@ -1,37 +1,22 @@
-import "@/app/globals.css";
-import type { Metadata } from "next";
-import { Inter, Playfair_Display } from "next/font/google";
-import { ThemeProvider } from "@/components/theme-provider";
-import AppShell from "@/components/layout/AppShell";
-import { siteConfig } from "@/config/site";
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-});
-
-const playfair = Playfair_Display({
-  subsets: ["latin"],
-  variable: "--font-playfair",
-});
+import "@/app/globals.css"
+import type { Metadata } from "next"
+import { ThemeProvider } from "@/components/theme-provider"
+import AppShell from "@/components/layout/AppShell"
+import { siteConfig } from "@/config/site"
 
 export const metadata: Metadata = {
   title: `${siteConfig.brandName} - Không gian giải trí đẳng cấp`,
-  description:
-    siteConfig.description,
-};
+  description: siteConfig.description,
+}
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
   return (
-    <html
-      lang="vi"
-      suppressHydrationWarning
-      className={`${inter.variable} ${playfair.variable}`}
-    >
-      <body className={inter.className}>
+    <html lang="vi" suppressHydrationWarning>
+      <body>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
@@ -43,5 +28,5 @@ export default function RootLayout({
         </ThemeProvider>
       </body>
     </html>
-  );
+  )
 }

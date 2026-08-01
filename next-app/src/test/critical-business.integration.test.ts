@@ -127,7 +127,10 @@ describe("critical business flows on isolated PostgreSQL", () => {
   it("creates, replays and looks up one booking while rejecting double-booking", async () => {
     const token = randomUUID()
     const fixture = await createCatalogFixture(token)
-    const phone = `090${token.replaceAll("-", "").slice(0, 7)}`
+    const phoneSuffix = [...token.replaceAll("-", "").slice(0, 7)]
+      .map((character) => String(Number.parseInt(character, 16) % 10))
+      .join("")
+    const phone = `090${phoneSuffix}`
     const input = {
       customerName: "Critical Integration Guest",
       customerPhone: phone,

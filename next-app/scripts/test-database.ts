@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process"
 
 import { assertSafeTestDatabase } from "./test-database-guard"
+import { spawnNpmSync } from "./npm-process"
 import {
   enterTestEnvironment,
   loadLocalTestEnvironment,
@@ -16,14 +17,16 @@ const composeArgs = [
 ]
 
 function run(command: string, args: string[], quiet = false) {
-  const executable =
-    process.platform === "win32" && command === "npm" ? "npm.cmd" : command
-  const result = spawnSync(executable, args, {
+  const options = {
     cwd: process.cwd(),
     env: process.env,
-    stdio: quiet ? "ignore" : "inherit",
+    stdio: quiet ? ("ignore" as const) : ("inherit" as const),
     shell: false,
-  })
+  }
+  const result =
+    command === "npm"
+      ? spawnNpmSync(args, options)
+      : spawnSync(command, args, options)
   if (result.error) {
     if (
       command === "docker" &&

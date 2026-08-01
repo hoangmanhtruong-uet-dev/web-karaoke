@@ -1,4 +1,4 @@
-﻿-- Additive migration. Review/apply in development or staging only; never run directly on production.
+-- Additive migration. Review/apply in development or staging only; never run directly on production.
 DO $$ BEGIN CREATE TYPE "PricingRuleType" AS ENUM ('holiday','special','weekend','regular','defaultRoom'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 ALTER TYPE "PaymentStatus" ADD VALUE IF NOT EXISTS 'expired';
 ALTER TABLE "Booking" ADD COLUMN IF NOT EXISTS "roomAmount" INTEGER;

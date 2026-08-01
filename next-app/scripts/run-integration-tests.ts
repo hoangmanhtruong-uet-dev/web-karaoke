@@ -1,18 +1,15 @@
-import { spawnSync } from "node:child_process"
-
 import { assertSafeTestDatabase } from "./test-database-guard"
+import { spawnNpmSync } from "./npm-process"
 import {
   enterTestEnvironment,
   loadLocalTestEnvironment,
 } from "./test-database-environment"
 
 function runNpmExec(args: string[]) {
-  const npm = process.platform === "win32" ? "npm.cmd" : "npm"
-  const result = spawnSync(npm, ["exec", "--", ...args], {
+  const result = spawnNpmSync(["exec", "--", ...args], {
     cwd: process.cwd(),
     env: process.env,
     stdio: "inherit",
-    shell: false,
   })
   if (result.error) throw result.error
   if (result.status !== 0) process.exit(result.status ?? 1)

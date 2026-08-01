@@ -1,8 +1,7 @@
-import { spawnSync } from "node:child_process"
-
 import { Pool } from "pg"
 
 import { assertSafeTestDatabase } from "./test-database-guard"
+import { spawnNpmSync } from "./npm-process"
 import {
   enterTestEnvironment,
   loadLocalTestEnvironment,
@@ -28,12 +27,10 @@ try {
   await pool.end()
 }
 
-const npm = process.platform === "win32" ? "npm.cmd" : "npm"
-const result = spawnSync(npm, ["run", "test:integration"], {
+const result = spawnNpmSync(["run", "test:integration"], {
   cwd: process.cwd(),
   env: process.env,
   stdio: "inherit",
-  shell: false,
 })
 
 if (result.error) throw result.error
