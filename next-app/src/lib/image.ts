@@ -10,7 +10,12 @@ export const imageFallbacks: Record<ImageFallbackKind, string> = {
 // Keep this manifest in sync when real files are added under public/images.
 // Unknown local paths are normalized to a local fallback before rendering, so
 // missing assets do not create avoidable 404 requests.
-export const availableImagePaths = new Set<string>()
+export const availableImagePaths = new Set<string>([
+  "/images/hero-bg.png",
+  "/images/rooms/ocean.png",
+  "/images/rooms/ruby.png",
+  "/images/rooms/diamond.png",
+])
 
 export function normalizeImagePath(
   source: string | null | undefined,

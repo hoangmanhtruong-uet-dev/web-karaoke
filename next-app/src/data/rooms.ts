@@ -19,7 +19,7 @@ export const rooms: Room[] = [
       "Phòng tắm riêng Jacuzzi",
     ],
     status: "available",
-    imageUrl: "/images/rooms/diamond.jpg",
+    imageUrl: "/images/rooms/diamond.png",
   },
   {
     id: "room-02",
@@ -36,7 +36,7 @@ export const rooms: Room[] = [
       "Bàn pha chế tại chỗ",
     ],
     status: "available",
-    imageUrl: "/images/rooms/ruby.jpg",
+    imageUrl: "/images/rooms/ruby.png",
   },
 
   // Branch 2 - Sài Gòn Pearl (2 rooms)
@@ -73,7 +73,7 @@ export const rooms: Room[] = [
       "Micro không dây",
     ],
     status: "available",
-    imageUrl: "/images/rooms/ocean.jpg",
+    imageUrl: "/images/rooms/ocean.png",
   },
 
   // Branch 3 - Landmark 81 (2 rooms)

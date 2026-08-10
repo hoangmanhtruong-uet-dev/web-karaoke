@@ -42,27 +42,22 @@ export default function Header() {
 
           {/* Desktop Navigation */}
           <nav aria-label="Điều hướng chính" className="hidden items-center gap-1 lg:flex">
-            {navItems.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className="group relative px-4 py-2 text-sm font-medium text-gold-soft transition-colors duration-300 hover:text-gold"
-              >
-                {item.name}
-                <span className="absolute bottom-0 left-1/2 hidden h-0.5 w-0 -translate-x-1/2 rounded-full bg-gold transition-all duration-300 group-hover:block group-hover:w-full" />
-              </Link>
-            ))}
+            {navItems
+              .filter((item) => ["Trang chủ", "Phòng hát", "Menu", "Chi nhánh", "Ưu đãi"].includes(item.name))
+              .map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className="group relative px-4 py-2 text-sm font-medium text-gold-soft transition-colors duration-300 hover:text-gold"
+                >
+                  {item.name}
+                  <span className="absolute bottom-0 left-1/2 hidden h-0.5 w-0 -translate-x-1/2 rounded-full bg-gold transition-all duration-300 group-hover:block group-hover:w-full" />
+                </Link>
+              ))}
           </nav>
 
           {/* CTA Button */}
           <div className="hidden items-center gap-3 lg:flex">
-            <Link
-              href={contactInfo.hotlineHref}
-              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-4 py-2 text-sm font-medium text-muted-foreground transition hover:border-gold/30 hover:text-gold"
-            >
-              <Phone className="size-4" />
-              {contactInfo.hotline}
-            </Link>
             <Button asChild className="luxury-button h-10 px-5 text-base">
               <Link href="/booking">Đặt phòng ngay</Link>
             </Button>
